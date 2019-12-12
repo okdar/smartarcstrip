@@ -178,108 +178,17 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 //            drawDate(targetDc, Time.today());
 //        }
 
-        targetDc.setPenWidth(3);
         if (hasElevationHistory) {
             var elevationIter = SensorHistory.getElevationHistory({});
-            var elev = elevationIter.next();
-            if (elev != null) {
-                var e = elev.data.format("%.0f");
-                targetDc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-                targetDc.drawText(screenRadius, 67, Graphics.FONT_TINY, e, Graphics.TEXT_JUSTIFY_CENTER);
-                var minVal = elevationIter.getMin();
-                var maxVal = elevationIter.getMax();
-                var minValStr = minVal.format("%.0f");
-                var maxValStr = maxVal.format("%.0f");
-                var range = maxVal - minVal;
-
-//                targetDc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-//                targetDc.drawText(45, 59, Graphics.FONT_XTINY, maxValStr, Graphics.TEXT_JUSTIFY_LEFT);
-//                targetDc.drawText(45, 82, Graphics.FONT_XTINY, minValStr, Graphics.TEXT_JUSTIFY_LEFT);
-                targetDc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-                targetDc.drawLine(45 + (targetDc.getTextDimensions(maxValStr, Graphics.FONT_XTINY))[0] + 5, 65, 195, 65);
-                targetDc.drawLine(45 + (targetDc.getTextDimensions(minValStr, Graphics.FONT_XTINY))[0] + 5, 100, 195, 100);
-
-                targetDc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-                var x1 = 195;
-                var y1 = 100 - (elev.data - minVal) / range * 35;
-                var x2;
-                var y2;
-                while (elev != null) {
-                    elev = elevationIter.next();
-                    if (elev != null) {
-                        x2 = x1 - 1;
-                        y2 = 100 - (elev.data - minVal) / range * 35;
-
-                        targetDc.drawLine(x1, y1, x2, y2);
-                        x1 = x2;
-                        y1 = y2;
-                        if (x1 == 45) {
-                            break;
-                        }
-                    }
-
-                }
-                targetDc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_BLACK);
-                targetDc.drawText(45, 59, Graphics.FONT_XTINY, maxValStr, Graphics.TEXT_JUSTIFY_LEFT);
-                targetDc.drawText(45, 82, Graphics.FONT_XTINY, minValStr, Graphics.TEXT_JUSTIFY_LEFT);
+            if (elevationIter != null) {
+                drawChart(targetDc, elevationIter, 45, 65, 0, 1.0, 5);
             }
-
-//            targetDc.drawText(screenRadius, 50, Graphics.FONT_TINY, os, Graphics.TEXT_JUSTIFY_CENTER);
-//            targetDc.drawText(screenRadius, 70, Graphics.FONT_TINY, ns, Graphics.TEXT_JUSTIFY_CENTER);
-
         }
         if (hasPressureHistory) {
             var pressureIter = SensorHistory.getPressureHistory({});
-            var pres = pressureIter.next();
-            if (pres != null) {
-                var p = pres.data.format("%.0f");
-                targetDc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-                targetDc.drawText(screenRadius, 142, Graphics.FONT_TINY, (pres.data/100.0).format("%.0f"), Graphics.TEXT_JUSTIFY_CENTER);
-                var minVal = pressureIter.getMin() / 100.0;
-                var maxVal = pressureIter.getMax() / 100.0;
-                var minValStr = minVal.format("%.0f");
-                var maxValStr = maxVal.format("%.0f");
-                var range = maxVal - minVal;
-                if (range == 0) {
-                    range = 0.01;
-                }
-
-//                targetDc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-//                targetDc.drawText(45, 134, Graphics.FONT_XTINY, maxValStr, Graphics.TEXT_JUSTIFY_LEFT);
-//                targetDc.drawText(45, 157, Graphics.FONT_XTINY, minValStr, Graphics.TEXT_JUSTIFY_LEFT);
-                targetDc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-                targetDc.drawLine(45 + (targetDc.getTextDimensions(maxValStr, Graphics.FONT_XTINY))[0] + 5, 140, 195, 140);
-                targetDc.drawLine(45 + (targetDc.getTextDimensions(minValStr, Graphics.FONT_XTINY))[0] + 5, 175, 195, 175);
-
-                targetDc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-                var x1 = 195;
-                var y1 = 175 - ((pres.data / 100.0) - minVal) / range * 35;
-                var x2;
-                var y2;
-                while (pres != null) {
-                    pres = pressureIter.next();
-                    if (pres != null) {
-                        x2 = x1 - 1;
-                        y2 = 175 - ((pres.data / 100.0) - minVal) / range * 35;
-
-                        targetDc.drawLine(x1, y1, x2, y2);
-                        x1 = x2;
-                        y1 = y2;
-                        if (x1 == 45) {
-                            break;
-                        }
-                    }
-
-                }
-                targetDc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_BLACK);
-                targetDc.drawText(45, 134, Graphics.FONT_XTINY, maxValStr, Graphics.TEXT_JUSTIFY_LEFT);
-                targetDc.drawText(45, 157, Graphics.FONT_XTINY, minValStr, Graphics.TEXT_JUSTIFY_LEFT);
+            if (pressureIter != null) {
+                drawChart(targetDc, pressureIter, 45, 140, 1, 100.0, 5);
             }
-
-//            var pressureIter = SensorHistory.getPressureHistory({});
-//            var pres = pressureIter.next();
-//            var p = (pres.data/100.0).format("%.1f");
-//            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 70, Graphics.FONT_TINY, p, Graphics.TEXT_JUSTIFY_CENTER);
         }
         if (hasTemperatureHistory) {
             targetDc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
@@ -676,6 +585,68 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         //debug rectangle
 //        dc.drawRectangle(screenWidth - hrTextDimension[0] - 30, screenRadius - (hrTextDimension[1] / 2), hrTextDimension[0], hrTextDimension[1]);
         dc.drawText(screenWidth - 30, screenRadius, font, hrText, Graphics.TEXT_JUSTIFY_RIGHT|Graphics.TEXT_JUSTIFY_VCENTER);
+    }
+
+    function drawChart(dc, iterator, leftX, topY, decimalCount, divider, minimalRange) {
+        var stringFormater =  "%." + decimalCount + "f";
+        var minVal = Math.floor(iterator.getMin() / divider);
+        var maxVal = Math.ceil(iterator.getMax() / divider);
+        var range = maxVal - minVal;
+        if (range < minimalRange) {
+            var avg = (minVal + maxVal) / 2.0;
+            minVal = avg - (minimalRange / 2.0);
+            maxVal = avg + (minimalRange / 2.0);
+            range = minimalRange;
+        }
+        var minValStr = minVal.format("%.0f");
+        var maxValStr = maxVal.format("%.0f");
+
+        var item = iterator.next();
+        if (item != null) {
+            var value = item.data;
+            if (value != null) {
+                var valueStr = value.format(stringFormater);
+                dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+                //draw latest value
+                dc.drawText(screenRadius, topY + 2, Graphics.FONT_TINY, (value / divider).format(stringFormater), Graphics.TEXT_JUSTIFY_CENTER);
+                //draw min and max values
+                dc.drawText(leftX, topY - 6, Graphics.FONT_XTINY, maxValStr, Graphics.TEXT_JUSTIFY_LEFT);
+                dc.drawText(leftX, topY + 35 - 18, Graphics.FONT_XTINY, minValStr, Graphics.TEXT_JUSTIFY_LEFT);
+                //draw min and max lines
+                dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+                dc.setPenWidth(1);
+                var maxX = leftX + (dc.getTextDimensions(maxValStr, Graphics.FONT_XTINY))[0] + 5;
+                var minX = leftX + (dc.getTextDimensions(minValStr, Graphics.FONT_XTINY))[0] + 5;
+                dc.drawLine(maxX, topY, screenWidth - leftX, topY);
+                dc.drawLine(minX, topY + 35, screenWidth - leftX, topY + 35);
+
+                dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
+                dc.setPenWidth(3);
+                var x1 = screenWidth - leftX;
+                var y1 = (topY + 35) - ((value / divider) - minVal) / range * 35;
+                var x2;
+                var y2;
+                item = iterator.next();
+                if (item != null) {
+                    value = item.data;
+                    while (value != null) {
+                        x2 = x1 - 1;
+                        y2 = (topY + 35) - ((value / divider) - minVal) / range * 35;
+                        dc.drawLine(x1, y1, x2, y2);
+                        x1 = x2;
+                        y1 = y2;
+                        if (x1 == maxX || x1 == minX) {
+                            break;
+                        }
+                        item = iterator.next();
+                        if (item == null) {
+                            break;
+                        }
+                        value = item.data;
+                    }
+                }
+            }
+        }
     }
 
 }

@@ -1,6 +1,6 @@
 /*
     This file is part of SmartArcs Trip watch face.
-    https://github.com/okdar/smartarcs
+    https://github.com/okdar/smartarcstrip
 
     SmartArcs Trip is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

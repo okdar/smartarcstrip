@@ -1,6 +1,6 @@
 /*
     This file is part of SmartArcs Trip watch face.
-    https://github.com/okdar/smartarcs
+    https://github.com/okdar/smartarcstrip
 
     SmartArcs Trip is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var partialUpdatesAllowed = false;
     var hasElevationHistory = false;
     var hasPressureHistory = false;
+    var hasHeartRateHistory = false;
     var hasTemperatureHistory = false;
     var curClip;
     var fullScreenRefresh;
@@ -79,6 +80,16 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var dateFormat;
     var hrColor;
     var hrRefreshInterval;
+    var upperField;
+    var upperGraph;
+    var bottomGraph;
+    var bottomField;
+    var graphBordersColor;
+    var graphLegendColor;
+    var graphLineColor;
+    var graphLineWidth;
+    var graphCurrentValueColor;
+    var graphCurrentValueOnTop;
 
     function initialize() {
         loadUserSettings();
@@ -92,6 +103,9 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             }
             if (Toybox.SensorHistory has :getPressureHistory) {
                 hasPressureHistory = true;
+            }
+            if (Toybox.SensorHistory has :getHeartRateHistory) {
+                hasHeartRateHistory = true;
             }
             if (Toybox.SensorHistory has :getTemperatureHistory) {
                 hasTemperatureHistory = true;
@@ -179,27 +193,131 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 //        }
 
         if (hasElevationHistory) {
-            var elevationIter = SensorHistory.getElevationHistory({});
-            if (elevationIter != null) {
-                drawChart(targetDc, elevationIter, 45, 65, 0, 1.0, 5);
+            if (upperField == 2 || bottomField == 2) {
+                var iter = SensorHistory.getElevationHistory({});
+                if (iter != null) {
+                    var item = iter.next();
+                    var value = null;
+                    if (item != null) {
+                        value = item.data;
+                    }
+                    if (value != null && graphCurrentValueColor != offSettingFlag) {
+                        targetDc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
+                        if (upperField == 2) {
+                            targetDc.drawText(screenRadius, 30, Graphics.FONT_TINY, value.format("%.0f"), Graphics.TEXT_JUSTIFY_CENTER);
+                        }
+                        if (bottomField == 2) {
+                            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 30, Graphics.FONT_TINY, value.format("%.0f"), Graphics.TEXT_JUSTIFY_CENTER);
+                        }
+                    }
+                }
+                iter = null;
+            }
+            if (upperGraph == 1) {
+                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 1, 0, 1.0, 5, graphCurrentValueColor);
+            }
+            if (bottomGraph == 1) {
+                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 2, 0, 1.0, 5, graphCurrentValueColor);
             }
         }
         if (hasPressureHistory) {
-            var pressureIter = SensorHistory.getPressureHistory({});
-            if (pressureIter != null) {
-                drawChart(targetDc, pressureIter, 45, 140, 1, 100.0, 5);
+            if (upperField == 3 || bottomField == 3) {
+                var iter = SensorHistory.getPressureHistory({});
+                if (iter != null) {
+                    var item = iter.next();
+                    var value = null;
+                    if (item != null) {
+                        value = item.data;
+                    }
+                    if (value != null && graphCurrentValueColor != offSettingFlag) {
+                        targetDc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
+                        if (upperField == 3) {
+                            targetDc.drawText(screenRadius, 30, Graphics.FONT_TINY, (value / 100.0).format("%.1f"), Graphics.TEXT_JUSTIFY_CENTER);
+                        }
+                        if (bottomField == 3) {
+                            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 30, Graphics.FONT_TINY, (value / 100.0).format("%.1f"), Graphics.TEXT_JUSTIFY_CENTER);
+                        }
+                    }
+                }
+                iter = null;
+            }
+            if (upperGraph == 2) {
+                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 1, 1, 100.0, 5, graphCurrentValueColor);
+            }
+            if (bottomGraph == 2) {
+                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 2, 1, 100.0, 5, graphCurrentValueColor);
+            }
+        }
+        if (hasHeartRateHistory) {
+//            if (upperField == 3 || bottomField == 3) {
+//                var iter = SensorHistory.getTemperatureHistory({});
+//                if (iter != null) {
+//                    var item = iter.next();
+//                    var value = null;
+//                    if (item != null) {
+//                        value = item.data;
+//                    }
+//                    if (value != null) {
+//                        targetDc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
+//                        if (upperField == 4) {
+//                            targetDc.drawText(screenRadius, 30, Graphics.FONT_TINY, value.format("%.1f") + StringUtil.utf8ArrayToString([0xC2,0xB0]), Graphics.TEXT_JUSTIFY_CENTER);
+//                        }
+//                        if (bottomField == 4) {
+//                            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 30, Graphics.FONT_TINY, value.format("%.1f") + StringUtil.utf8ArrayToString([0xC2,0xB0]), Graphics.TEXT_JUSTIFY_CENTER);
+//                        }
+//                    }
+//                }
+//                iter = null;
+//            }
+            if (upperGraph == 3) {
+                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 1, 0, 1.0, 5, offSettingFlag);
+            }
+            if (bottomGraph == 3) {
+                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 2, 0, 1.0, 5, offSettingFlag);
             }
         }
         if (hasTemperatureHistory) {
-            targetDc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-            var temperatureIter = SensorHistory.getTemperatureHistory({});
-            var temp = temperatureIter.next();
-            var t = temp.data.format("%.1f") + StringUtil.utf8ArrayToString([0xC2,0xB0]);
-            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 30, Graphics.FONT_TINY, t, Graphics.TEXT_JUSTIFY_CENTER);
+            if (upperField == 4 || bottomField == 4) {
+                var iter = SensorHistory.getTemperatureHistory({});
+                if (iter != null) {
+                    var item = iter.next();
+                    var value = null;
+                    if (item != null) {
+                        value = item.data;
+                    }
+                    if (value != null && graphCurrentValueColor != offSettingFlag) {
+                        targetDc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
+                        if (upperField == 4) {
+                            targetDc.drawText(screenRadius, 30, Graphics.FONT_TINY, value.format("%.1f") + StringUtil.utf8ArrayToString([0xC2,0xB0]), Graphics.TEXT_JUSTIFY_CENTER);
+                        }
+                        if (bottomField == 4) {
+                            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 30, Graphics.FONT_TINY, value.format("%.1f") + StringUtil.utf8ArrayToString([0xC2,0xB0]), Graphics.TEXT_JUSTIFY_CENTER);
+                        }
+                    }
+                }
+                iter = null;
+            }
+            if (upperGraph == 4) {
+                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 1, 1, 1.0, 5, graphCurrentValueColor);
+            }
+            if (bottomGraph == 4) {
+                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 2, 1, 1.0, 5, graphCurrentValueColor);
+            }
         }
 
-        targetDc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        targetDc.drawText(screenRadius, 30, Graphics.FONT_TINY, (ActivityMonitor.getInfo().distance/100000.0).format("%.2f"), Graphics.TEXT_JUSTIFY_CENTER);
+//            targetDc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+//            var temperatureIter = SensorHistory.getTemperatureHistory({});
+//            var temp = temperatureIter.next();
+//            var t = temp.data.format("%.1f") + StringUtil.utf8ArrayToString([0xC2,0xB0]);
+//            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 30, Graphics.FONT_TINY, t, Graphics.TEXT_JUSTIFY_CENTER);
+
+        targetDc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
+        if (upperField == 1 && graphCurrentValueColor != offSettingFlag) {
+            targetDc.drawText(screenRadius, 30, Graphics.FONT_TINY, (ActivityMonitor.getInfo().distance/100000.0).format("%.2f"), Graphics.TEXT_JUSTIFY_CENTER);
+        }
+        if (bottomField == 1 && graphCurrentValueColor != offSettingFlag) {
+            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 30, Graphics.FONT_TINY, (ActivityMonitor.getInfo().distance/100000.0).format("%.2f"), Graphics.TEXT_JUSTIFY_CENTER);
+        }
 
         if (handsOnTop) {
             drawHands(targetDc, System.getClockTime());
@@ -274,6 +392,19 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         handsOnTop = app.getProperty("handsOnTop");
 
         showBatteryIndicator = app.getProperty("showBatteryIndicator");
+
+        upperField = app.getProperty("upperField");
+        upperGraph = app.getProperty("upperGraph");
+        bottomGraph = app.getProperty("bottomGraph");
+        bottomField = app.getProperty("bottomField");
+        if (upperGraph > 0 || bottomGraph > 0) {
+            graphBordersColor = app.getProperty("graphBordersColor");
+            graphLegendColor = app.getProperty("graphLegendColor");
+            graphLineColor = app.getProperty("graphLineColor");
+            graphLineWidth = app.getProperty("graphLineWidth");
+            graphCurrentValueColor = app.getProperty("graphCurrentValueColor");
+            graphCurrentValueOnTop = app.getProperty("graphCurrentValueOnTop");
+        }
 
         //ensure that constants will be pre-computed
         precompute = true;
@@ -537,6 +668,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         return [min, max];
     }
 
+/*
     function drawDate(dc, today) {
         var info = Gregorian.info(today, Time.FORMAT_MEDIUM);
 
@@ -556,6 +688,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         dc.setColor(dateColor, Graphics.COLOR_TRANSPARENT);
         dc.drawText(screenWidth - 30, screenRadius, font, dateString, Graphics.TEXT_JUSTIFY_RIGHT|Graphics.TEXT_JUSTIFY_VCENTER);
     }
+*/
 
     function drawHR(dc, refreshHR) {
         var hr = 0;
@@ -587,7 +720,15 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         dc.drawText(screenWidth - 30, screenRadius, font, hrText, Graphics.TEXT_JUSTIFY_RIGHT|Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    function drawChart(dc, iterator, leftX, topY, decimalCount, divider, minimalRange) {
+    function drawGraph(dc, iterator, graphPosition, decimalCount, divider, minimalRange, showCurrentValue) {
+        var leftX = 45;
+        var topY;
+        var currentValue;
+        if (graphPosition == 1) {
+            topY = 65;
+        } else {
+            topY = 140;
+        }
         var stringFormater =  "%." + decimalCount + "f";
         var minVal = Math.floor(iterator.getMin() / divider);
         var maxVal = Math.ceil(iterator.getMax() / divider);
@@ -604,24 +745,30 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         var item = iterator.next();
         if (item != null) {
             var value = item.data;
+            currentValue = value;
             if (value != null) {
                 var valueStr = value.format(stringFormater);
-                dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
                 //draw latest value
-                dc.drawText(screenRadius, topY + 2, Graphics.FONT_TINY, (value / divider).format(stringFormater), Graphics.TEXT_JUSTIFY_CENTER);
+                if (showCurrentValue != offSettingFlag && !graphCurrentValueOnTop) {
+                    dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
+                    dc.drawText(screenRadius, topY + 2, Graphics.FONT_TINY, (value / divider).format(stringFormater), Graphics.TEXT_JUSTIFY_CENTER);
+                }
                 //draw min and max values
+                dc.setColor(graphLegendColor, Graphics.COLOR_TRANSPARENT);
                 dc.drawText(leftX, topY - 6, Graphics.FONT_XTINY, maxValStr, Graphics.TEXT_JUSTIFY_LEFT);
                 dc.drawText(leftX, topY + 35 - 18, Graphics.FONT_XTINY, minValStr, Graphics.TEXT_JUSTIFY_LEFT);
                 //draw min and max lines
-                dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-                dc.setPenWidth(1);
                 var maxX = leftX + (dc.getTextDimensions(maxValStr, Graphics.FONT_XTINY))[0] + 5;
                 var minX = leftX + (dc.getTextDimensions(minValStr, Graphics.FONT_XTINY))[0] + 5;
-                dc.drawLine(maxX, topY, screenWidth - leftX, topY);
-                dc.drawLine(minX, topY + 35, screenWidth - leftX, topY + 35);
+                if (graphBordersColor != offSettingFlag) {
+                    dc.setColor(graphBordersColor, Graphics.COLOR_TRANSPARENT);
+                    dc.setPenWidth(1);
+                    dc.drawLine(maxX, topY, screenWidth - leftX, topY);
+                    dc.drawLine(minX, topY + 35, screenWidth - leftX, topY + 35);
 
-                dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-                dc.setPenWidth(3);
+                }
+                dc.setColor(graphLineColor, Graphics.COLOR_TRANSPARENT);
+                dc.setPenWidth(graphLineWidth);
                 var x1 = screenWidth - leftX;
                 var y1 = (topY + 35) - ((value / divider) - minVal) / range * 35;
                 var x2;
@@ -644,7 +791,13 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                         }
                         value = item.data;
                     }
+                } else {
+                    return;
                 }
+            }
+            if (showCurrentValue != offSettingFlag && graphCurrentValueOnTop && currentValue != null) {
+                dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(screenRadius, topY + 2, Graphics.FONT_TINY, (currentValue / divider).format(stringFormater), Graphics.TEXT_JUSTIFY_CENTER);
             }
         }
     }

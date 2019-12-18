@@ -1,6 +1,6 @@
 <!--
     This file is part of SmartArcs Trip watch face.
-    https://github.com/okdar/smartarcs
+    https://github.com/okdar/smartarcstrip
 
     SmartArcs Trip is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -42,11 +42,23 @@
         <property id="dndColor" type="number">0xAA00FF</property>
         <property id="alarmColor" type="number">0xFFAA00</property>
 
+<!--
         <property id="dateFormat" type="number">1</property>
         <property id="dateColor" type="number">0xAAAAAA</property>
-
+-->
         <property id="hrColor" type="number">0xAAAAAA</property>
         <property id="hrRefreshInterval" type="number">3</property>
+        
+        <property id="upperField" type="number">1</property>
+        <property id="upperGraph" type="number">1</property>
+        <property id="bottomGraph" type="number">2</property>
+        <property id="bottomField" type="number">4</property>
+        <property id="graphBordersColor" type="number">0x555555</property>
+        <property id="graphLegendColor" type="number">0xAAAAAA</property>
+        <property id="graphLineColor" type="number">0x00FF00</property>
+        <property id="graphLineWidth" type="number">2</property>
+        <property id="graphCurrentValueColor" type="number">0xAAAAAA</property>
+        <property id="graphCurrentValueOnTop" type="boolean">false</property>        
     </properties>
 
     <strings>
@@ -79,6 +91,7 @@
 
         <string id="alarmColor">Alarm indicator color (off or color)</string>
 
+<!--
         <string id="dateColor">Date color (off or color)</string>
         <string id="dateFormat">Date format</string>
         <string id="dateFormat1">DayOfWeek Day</string>
@@ -86,6 +99,7 @@
         <string id="dateFormat3">Day Month</string>
         <string id="dateFormat4">Month Day</string>
         <string id="dateFormat0">Day</string>
+-->
 
         <string id="white">White</string>
         <string id="ltGray">Light gray</string>
@@ -111,6 +125,25 @@
         <string id="hr3">3</string>
         <string id="hr5">5</string>
         <string id="hr10">10</string>
+        
+        <string id="upperField">Upper data field (off or data field)</string>
+        <string id="upperGraph">Upper graph (off or graph)</string>
+        <string id="bottomGraph">Bottom graph (off or graph)</string>
+        <string id="bottomField">Bottom data field (off or data field)</string>
+        <string id="graphBordersColor">Graph borders color (off or color)</string>
+        <string id="graphLegendColor">Graph legend color</string>
+        <string id="graphLineColor">Graph line color</string>
+        <string id="graphLineWidth">Graph line width</string>
+        <string id="graphCurrentValueColor">Graph current value color (off or color)</string>
+        <string id="graphCurrentValueOnTop">Show graph current value on top of graph line</string>        
+        <string id="noGraph">No graph</string>
+        <string id="elevation">Elevation</string>
+        <string id="pressure">Pressure</string>
+        <string id="hr">Heart rate</string>
+        <string id="temperature">Temperature</string>
+        <string id="noData">No data</string>
+        <string id="distance">Walked distance</string>
+        
     </strings>
 
     <settings>
@@ -369,6 +402,7 @@
             </settingConfig>
         </setting>
 
+<!--
         <setting propertyKey="@Properties.dateColor" title="@Strings.dateColor">
             <settingConfig type="list">
                 <listEntry value="-999">@Strings.off</listEntry>
@@ -397,7 +431,8 @@
                 <listEntry value="4">@Strings.dateFormat4</listEntry>
             </settingConfig>
         </setting>
-
+-->
+ 
         <setting propertyKey="@Properties.hrColor" title="@Strings.hrColor">
             <settingConfig type="list">
                 <listEntry value="-999">@Strings.off</listEntry>
@@ -426,6 +461,128 @@
                 <listEntry value="10">@Strings.hr10</listEntry>
             </settingConfig>
         </setting>
+        
+        <setting propertyKey="@Properties.upperField" title="@Strings.upperField">
+            <settingConfig type="list">
+                <listEntry value="0">@Strings.noData</listEntry>
+                <listEntry value="1">@Strings.distance</listEntry>
+                <listEntry value="2">@Strings.elevation</listEntry>
+                <listEntry value="3">@Strings.pressure</listEntry>
+                <listEntry value="4">@Strings.temperature</listEntry>
+            </settingConfig>
+        </setting>        
+        <setting propertyKey="@Properties.upperGraph" title="@Strings.upperGraph">
+            <settingConfig type="list">
+                <listEntry value="0">@Strings.noGraph</listEntry>
+                <listEntry value="1">@Strings.elevation</listEntry>
+                <listEntry value="2">@Strings.pressure</listEntry>
+                <listEntry value="3">@Strings.hr</listEntry>
+                <listEntry value="4">@Strings.temperature</listEntry>
+            </settingConfig>
+        </setting>
+        <setting propertyKey="@Properties.bottomGraph" title="@Strings.bottomGraph">
+            <settingConfig type="list">
+                <listEntry value="0">@Strings.noGraph</listEntry>
+                <listEntry value="1">@Strings.elevation</listEntry>
+                <listEntry value="2">@Strings.pressure</listEntry>
+                <listEntry value="3">@Strings.hr</listEntry>
+                <listEntry value="4">@Strings.temperature</listEntry>
+            </settingConfig>
+        </setting>
+        <setting propertyKey="@Properties.bottomField" title="@Strings.bottomField">
+            <settingConfig type="list">
+                <listEntry value="0">@Strings.noData</listEntry>
+                <listEntry value="1">@Strings.distance</listEntry>
+                <listEntry value="2">@Strings.elevation</listEntry>
+                <listEntry value="3">@Strings.pressure</listEntry>
+                <listEntry value="4">@Strings.temperature</listEntry>
+            </settingConfig>
+        </setting>        
+        <setting propertyKey="@Properties.graphBordersColor" title="@Strings.graphBordersColor">
+            <settingConfig type="list">
+                <listEntry value="-999">@Strings.off</listEntry>
+                <listEntry value="0xFFFFFF">@Strings.white</listEntry>
+                <listEntry value="0xAAAAAA">@Strings.ltGray</listEntry>
+                <listEntry value="0x555555">@Strings.dkGray</listEntry>
+                <listEntry value="0x000000">@Strings.black</listEntry>
+                <listEntry value="0xFF0000">@Strings.red</listEntry>
+                <listEntry value="0xAA0000">@Strings.dkRed</listEntry>
+                <listEntry value="0xFF5500">@Strings.orange</listEntry>
+                <listEntry value="0xFFAA00">@Strings.yellow</listEntry>
+                <listEntry value="0x00FF00">@Strings.green</listEntry>
+                <listEntry value="0x00AA00">@Strings.dkGreen</listEntry>
+                <listEntry value="0x00AAFF">@Strings.blue</listEntry>
+                <listEntry value="0x0000FF">@Strings.dkBlue</listEntry>
+                <listEntry value="0xAA00FF">@Strings.purple</listEntry>
+                <listEntry value="0xFF00FF">@Strings.pink</listEntry>
+            </settingConfig>
+        </setting>
+        <setting propertyKey="@Properties.graphLegendColor" title="@Strings.graphLegendColor">
+            <settingConfig type="list">
+                <listEntry value="0xFFFFFF">@Strings.white</listEntry>
+                <listEntry value="0xAAAAAA">@Strings.ltGray</listEntry>
+                <listEntry value="0x555555">@Strings.dkGray</listEntry>
+                <listEntry value="0x000000">@Strings.black</listEntry>
+                <listEntry value="0xFF0000">@Strings.red</listEntry>
+                <listEntry value="0xAA0000">@Strings.dkRed</listEntry>
+                <listEntry value="0xFF5500">@Strings.orange</listEntry>
+                <listEntry value="0xFFAA00">@Strings.yellow</listEntry>
+                <listEntry value="0x00FF00">@Strings.green</listEntry>
+                <listEntry value="0x00AA00">@Strings.dkGreen</listEntry>
+                <listEntry value="0x00AAFF">@Strings.blue</listEntry>
+                <listEntry value="0x0000FF">@Strings.dkBlue</listEntry>
+                <listEntry value="0xAA00FF">@Strings.purple</listEntry>
+                <listEntry value="0xFF00FF">@Strings.pink</listEntry>
+            </settingConfig>
+        </setting>
+        <setting propertyKey="@Properties.graphLineColor" title="@Strings.graphLineColor">
+            <settingConfig type="list">
+                <listEntry value="0xFFFFFF">@Strings.white</listEntry>
+                <listEntry value="0xAAAAAA">@Strings.ltGray</listEntry>
+                <listEntry value="0x555555">@Strings.dkGray</listEntry>
+                <listEntry value="0x000000">@Strings.black</listEntry>
+                <listEntry value="0xFF0000">@Strings.red</listEntry>
+                <listEntry value="0xAA0000">@Strings.dkRed</listEntry>
+                <listEntry value="0xFF5500">@Strings.orange</listEntry>
+                <listEntry value="0xFFAA00">@Strings.yellow</listEntry>
+                <listEntry value="0x00FF00">@Strings.green</listEntry>
+                <listEntry value="0x00AA00">@Strings.dkGreen</listEntry>
+                <listEntry value="0x00AAFF">@Strings.blue</listEntry>
+                <listEntry value="0x0000FF">@Strings.dkBlue</listEntry>
+                <listEntry value="0xAA00FF">@Strings.purple</listEntry>
+                <listEntry value="0xFF00FF">@Strings.pink</listEntry>
+            </settingConfig>
+        </setting>
+        <setting propertyKey="@Properties.graphLineWidth" title="@Strings.graphLineWidth">
+            <settingConfig type="list">
+                <listEntry value="1">@Strings.hr1</listEntry>
+                <listEntry value="2">@Strings.hr2</listEntry>
+                <listEntry value="3">@Strings.hr3</listEntry>
+            </settingConfig>
+        </setting>        
+        <setting propertyKey="@Properties.graphCurrentValueColor" title="@Strings.graphCurrentValueColor">
+            <settingConfig type="list">
+                <listEntry value="-999">@Strings.off</listEntry>
+                <listEntry value="0xFFFFFF">@Strings.white</listEntry>
+                <listEntry value="0xAAAAAA">@Strings.ltGray</listEntry>
+                <listEntry value="0x555555">@Strings.dkGray</listEntry>
+                <listEntry value="0x000000">@Strings.black</listEntry>
+                <listEntry value="0xFF0000">@Strings.red</listEntry>
+                <listEntry value="0xAA0000">@Strings.dkRed</listEntry>
+                <listEntry value="0xFF5500">@Strings.orange</listEntry>
+                <listEntry value="0xFFAA00">@Strings.yellow</listEntry>
+                <listEntry value="0x00FF00">@Strings.green</listEntry>
+                <listEntry value="0x00AA00">@Strings.dkGreen</listEntry>
+                <listEntry value="0x00AAFF">@Strings.blue</listEntry>
+                <listEntry value="0x0000FF">@Strings.dkBlue</listEntry>
+                <listEntry value="0xAA00FF">@Strings.purple</listEntry>
+                <listEntry value="0xFF00FF">@Strings.pink</listEntry>
+            </settingConfig>
+        </setting>
+        <setting propertyKey="@Properties.graphCurrentValueOnTop" title="@Strings.graphCurrentValueOnTop">
+            <settingConfig type="boolean"/>
+        </setting>
+
     </settings>
 
 </resources>

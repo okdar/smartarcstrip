@@ -89,7 +89,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var graphLineColor;
     var graphLineWidth;
     var graphCurrentValueColor;
-    var graphCurrentValueOnTop;
+    var graphShowCurrentValue;
 
     function initialize() {
         loadUserSettings();
@@ -214,10 +214,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 iter = null;
             }
             if (upperGraph == 1) {
-                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 1, 0, 1.0, 5, graphCurrentValueColor);
+                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 1, 0, 1.0, 5, graphShowCurrentValue);
             }
             if (bottomGraph == 1) {
-                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 2, 0, 1.0, 5, graphCurrentValueColor);
+                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 2, 0, 1.0, 5, graphShowCurrentValue);
             }
         }
         if (hasPressureHistory) {
@@ -242,10 +242,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 iter = null;
             }
             if (upperGraph == 2) {
-                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 1, 1, 100.0, 5, graphCurrentValueColor);
+                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 1, 1, 100.0, 5, graphShowCurrentValue);
             }
             if (bottomGraph == 2) {
-                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 2, 1, 100.0, 5, graphCurrentValueColor);
+                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 2, 1, 100.0, 5, graphShowCurrentValue);
             }
         }
         if (hasHeartRateHistory) {
@@ -270,10 +270,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 //                iter = null;
 //            }
             if (upperGraph == 3) {
-                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 1, 0, 1.0, 5, offSettingFlag);
+                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 1, 0, 1.0, 5, 0);
             }
             if (bottomGraph == 3) {
-                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 2, 0, 1.0, 5, offSettingFlag);
+                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 2, 0, 1.0, 5, 0);
             }
         }
         if (hasTemperatureHistory) {
@@ -298,24 +298,18 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 iter = null;
             }
             if (upperGraph == 4) {
-                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 1, 1, 1.0, 5, graphCurrentValueColor);
+                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 1, 1, 1.0, 5, graphShowCurrentValue);
             }
             if (bottomGraph == 4) {
-                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 2, 1, 1.0, 5, graphCurrentValueColor);
+                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 2, 1, 1.0, 5, graphShowCurrentValue);
             }
         }
 
-//            targetDc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-//            var temperatureIter = SensorHistory.getTemperatureHistory({});
-//            var temp = temperatureIter.next();
-//            var t = temp.data.format("%.1f") + StringUtil.utf8ArrayToString([0xC2,0xB0]);
-//            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 30, Graphics.FONT_TINY, t, Graphics.TEXT_JUSTIFY_CENTER);
-
         targetDc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
-        if (upperField == 1 && graphCurrentValueColor != offSettingFlag) {
+        if (upperField == 1) {
             targetDc.drawText(screenRadius, 30, Graphics.FONT_TINY, (ActivityMonitor.getInfo().distance/100000.0).format("%.2f"), Graphics.TEXT_JUSTIFY_CENTER);
         }
-        if (bottomField == 1 && graphCurrentValueColor != offSettingFlag) {
+        if (bottomField == 1) {
             targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 30, Graphics.FONT_TINY, (ActivityMonitor.getInfo().distance/100000.0).format("%.2f"), Graphics.TEXT_JUSTIFY_CENTER);
         }
 
@@ -397,13 +391,13 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         upperGraph = app.getProperty("upperGraph");
         bottomGraph = app.getProperty("bottomGraph");
         bottomField = app.getProperty("bottomField");
+        graphCurrentValueColor = app.getProperty("graphCurrentValueColor");
         if (upperGraph > 0 || bottomGraph > 0) {
             graphBordersColor = app.getProperty("graphBordersColor");
             graphLegendColor = app.getProperty("graphLegendColor");
             graphLineColor = app.getProperty("graphLineColor");
             graphLineWidth = app.getProperty("graphLineWidth");
-            graphCurrentValueColor = app.getProperty("graphCurrentValueColor");
-            graphCurrentValueOnTop = app.getProperty("graphCurrentValueOnTop");
+            graphShowCurrentValue = app.getProperty("graphShowCurrentValue");
         }
 
         //ensure that constants will be pre-computed
@@ -749,7 +743,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             if (value != null) {
                 var valueStr = value.format(stringFormater);
                 //draw latest value
-                if (showCurrentValue != offSettingFlag && !graphCurrentValueOnTop) {
+                if (showCurrentValue == 2) {
                     dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
                     dc.drawText(screenRadius, topY + 2, Graphics.FONT_TINY, (value / divider).format(stringFormater), Graphics.TEXT_JUSTIFY_CENTER);
                 }
@@ -795,7 +789,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                     return;
                 }
             }
-            if (showCurrentValue != offSettingFlag && graphCurrentValueOnTop && currentValue != null) {
+            if (showCurrentValue == 1 && currentValue != null) {
                 dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
                 dc.drawText(screenRadius, topY + 2, Graphics.FONT_TINY, (currentValue / divider).format(stringFormater), Graphics.TEXT_JUSTIFY_CENTER);
             }

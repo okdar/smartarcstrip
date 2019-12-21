@@ -53,12 +53,12 @@
         <property id="upperGraph" type="number">1</property>
         <property id="bottomGraph" type="number">2</property>
         <property id="bottomField" type="number">4</property>
+        <property id="graphCurrentValueColor" type="number">0xAAAAAA</property>
         <property id="graphBordersColor" type="number">0x555555</property>
         <property id="graphLegendColor" type="number">0xAAAAAA</property>
         <property id="graphLineColor" type="number">0x00FF00</property>
         <property id="graphLineWidth" type="number">2</property>
-        <property id="graphCurrentValueColor" type="number">0xAAAAAA</property>
-        <property id="graphCurrentValueOnTop" type="boolean">false</property>        
+        <property id="graphShowCurrentValue" type="number">1</property>        
     </properties>
 
     <strings>
@@ -126,16 +126,16 @@
         <string id="hr5">5</string>
         <string id="hr10">10</string>
         
-        <string id="upperField">Upper data field (off or data field)</string>
-        <string id="upperGraph">Upper graph (off or graph)</string>
+        <string id="upperField">Top data field (off or data field)</string>
+        <string id="upperGraph">Top graph (off or graph)</string>
         <string id="bottomGraph">Bottom graph (off or graph)</string>
         <string id="bottomField">Bottom data field (off or data field)</string>
-        <string id="graphBordersColor">Graph borders color (off or color)</string>
+        <string id="graphBordersColor">Graph border color (off or color)</string>
         <string id="graphLegendColor">Graph legend color</string>
         <string id="graphLineColor">Graph line color</string>
         <string id="graphLineWidth">Graph line width</string>
-        <string id="graphCurrentValueColor">Graph current value color (off or color)</string>
-        <string id="graphCurrentValueOnTop">Show graph current value on top of graph line</string>        
+        <string id="graphCurrentValueColor">Data value color</string>
+        <string id="graphShowCurrentValue">Show graph current value</string>        
         <string id="noGraph">No graph</string>
         <string id="elevation">Elevation</string>
         <string id="pressure">Pressure</string>
@@ -143,6 +143,9 @@
         <string id="temperature">Temperature</string>
         <string id="noData">No data</string>
         <string id="distance">Walked distance</string>
+        <string id="showValueHide">Don't show</string>
+        <string id="showValueTop">On top of graph line</string>
+        <string id="showValueBottom">Under graph line</string>
         
     </strings>
 
@@ -498,6 +501,31 @@
                 <listEntry value="4">@Strings.temperature</listEntry>
             </settingConfig>
         </setting>        
+        <setting propertyKey="@Properties.graphCurrentValueColor" title="@Strings.graphCurrentValueColor">
+            <settingConfig type="list">
+                <listEntry value="0xFFFFFF">@Strings.white</listEntry>
+                <listEntry value="0xAAAAAA">@Strings.ltGray</listEntry>
+                <listEntry value="0x555555">@Strings.dkGray</listEntry>
+                <listEntry value="0x000000">@Strings.black</listEntry>
+                <listEntry value="0xFF0000">@Strings.red</listEntry>
+                <listEntry value="0xAA0000">@Strings.dkRed</listEntry>
+                <listEntry value="0xFF5500">@Strings.orange</listEntry>
+                <listEntry value="0xFFAA00">@Strings.yellow</listEntry>
+                <listEntry value="0x00FF00">@Strings.green</listEntry>
+                <listEntry value="0x00AA00">@Strings.dkGreen</listEntry>
+                <listEntry value="0x00AAFF">@Strings.blue</listEntry>
+                <listEntry value="0x0000FF">@Strings.dkBlue</listEntry>
+                <listEntry value="0xAA00FF">@Strings.purple</listEntry>
+                <listEntry value="0xFF00FF">@Strings.pink</listEntry>
+            </settingConfig>
+        </setting>
+        <setting propertyKey="@Properties.graphShowCurrentValue" title="@Strings.graphShowCurrentValue">
+            <settingConfig type="list">
+                <listEntry value="0">@Strings.showValueHide</listEntry>
+                <listEntry value="1">@Strings.showValueTop</listEntry>
+                <listEntry value="2">@Strings.showValueBottom</listEntry>
+            </settingConfig>
+        </setting>
         <setting propertyKey="@Properties.graphBordersColor" title="@Strings.graphBordersColor">
             <settingConfig type="list">
                 <listEntry value="-999">@Strings.off</listEntry>
@@ -560,28 +588,6 @@
                 <listEntry value="3">@Strings.hr3</listEntry>
             </settingConfig>
         </setting>        
-        <setting propertyKey="@Properties.graphCurrentValueColor" title="@Strings.graphCurrentValueColor">
-            <settingConfig type="list">
-                <listEntry value="-999">@Strings.off</listEntry>
-                <listEntry value="0xFFFFFF">@Strings.white</listEntry>
-                <listEntry value="0xAAAAAA">@Strings.ltGray</listEntry>
-                <listEntry value="0x555555">@Strings.dkGray</listEntry>
-                <listEntry value="0x000000">@Strings.black</listEntry>
-                <listEntry value="0xFF0000">@Strings.red</listEntry>
-                <listEntry value="0xAA0000">@Strings.dkRed</listEntry>
-                <listEntry value="0xFF5500">@Strings.orange</listEntry>
-                <listEntry value="0xFFAA00">@Strings.yellow</listEntry>
-                <listEntry value="0x00FF00">@Strings.green</listEntry>
-                <listEntry value="0x00AA00">@Strings.dkGreen</listEntry>
-                <listEntry value="0x00AAFF">@Strings.blue</listEntry>
-                <listEntry value="0x0000FF">@Strings.dkBlue</listEntry>
-                <listEntry value="0xAA00FF">@Strings.purple</listEntry>
-                <listEntry value="0xFF00FF">@Strings.pink</listEntry>
-            </settingConfig>
-        </setting>
-        <setting propertyKey="@Properties.graphCurrentValueOnTop" title="@Strings.graphCurrentValueOnTop">
-            <settingConfig type="boolean"/>
-        </setting>
 
     </settings>
 

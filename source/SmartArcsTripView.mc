@@ -203,6 +203,9 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                     }
                     if (value != null && graphCurrentValueColor != offSettingFlag) {
                         targetDc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
+                        if (deviceSettings.elevationUnits == System.UNIT_STATUTE) {
+                            value = convertM_Ft(value);
+                        }
                         if (upperField == 2) {
                             targetDc.drawText(screenRadius, 30, Graphics.FONT_TINY, value.format("%.0f"), Graphics.TEXT_JUSTIFY_CENTER);
                         }
@@ -214,10 +217,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 iter = null;
             }
             if (upperGraph == 1) {
-                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 1, 0, 1.0, 5, graphShowCurrentValue);
+                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 1, 0, 1.0, 5, graphShowCurrentValue, upperGraph);
             }
             if (bottomGraph == 1) {
-                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 2, 0, 1.0, 5, graphShowCurrentValue);
+                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 2, 0, 1.0, 5, graphShowCurrentValue, bottomGraph);
             }
         }
         if (hasPressureHistory) {
@@ -242,10 +245,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 iter = null;
             }
             if (upperGraph == 2) {
-                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 1, 1, 100.0, 5, graphShowCurrentValue);
+                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 1, 1, 100.0, 5, graphShowCurrentValue, upperGraph);
             }
             if (bottomGraph == 2) {
-                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 2, 1, 100.0, 5, graphShowCurrentValue);
+                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 2, 1, 100.0, 5, graphShowCurrentValue, bottomGraph);
             }
         }
         if (hasHeartRateHistory) {
@@ -270,10 +273,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 //                iter = null;
 //            }
             if (upperGraph == 3) {
-                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 1, 0, 1.0, 5, 0);
+                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 1, 0, 1.0, 5, 0, upperGraph);
             }
             if (bottomGraph == 3) {
-                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 2, 0, 1.0, 5, 0);
+                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 2, 0, 1.0, 5, 0, bottomGraph);
             }
         }
         if (hasTemperatureHistory) {
@@ -287,6 +290,9 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                     }
                     if (value != null && graphCurrentValueColor != offSettingFlag) {
                         targetDc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
+                        if (deviceSettings.temperatureUnits == System.UNIT_STATUTE) {
+                            value = convertC_F(value);
+                        }
                         if (upperField == 4) {
                             targetDc.drawText(screenRadius, 30, Graphics.FONT_TINY, value.format("%.1f") + StringUtil.utf8ArrayToString([0xC2,0xB0]), Graphics.TEXT_JUSTIFY_CENTER);
                         }
@@ -298,19 +304,27 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 iter = null;
             }
             if (upperGraph == 4) {
-                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 1, 1, 1.0, 5, graphShowCurrentValue);
+                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 1, 1, 1.0, 5, graphShowCurrentValue, upperGraph);
             }
             if (bottomGraph == 4) {
-                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 2, 1, 1.0, 5, graphShowCurrentValue);
+                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 2, 1, 1.0, 5, graphShowCurrentValue, bottomGraph);
             }
         }
 
         targetDc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
         if (upperField == 1) {
-            targetDc.drawText(screenRadius, 30, Graphics.FONT_TINY, (ActivityMonitor.getInfo().distance/100000.0).format("%.2f"), Graphics.TEXT_JUSTIFY_CENTER);
+            var distance = ActivityMonitor.getInfo().distance;
+            if (deviceSettings.distanceUnits == System.UNIT_STATUTE) {
+                distance = convertKm_Mi(distance);
+            }
+            targetDc.drawText(screenRadius, 30, Graphics.FONT_TINY, (distance/100000.0).format("%.2f"), Graphics.TEXT_JUSTIFY_CENTER);
         }
         if (bottomField == 1) {
-            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 30, Graphics.FONT_TINY, (ActivityMonitor.getInfo().distance/100000.0).format("%.2f"), Graphics.TEXT_JUSTIFY_CENTER);
+            var distance = ActivityMonitor.getInfo().distance;
+            if (deviceSettings.distanceUnits == System.UNIT_STATUTE) {
+                distance = convertKm_Mi(distance);
+            }
+            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 30, Graphics.FONT_TINY, (distance/100000.0).format("%.2f"), Graphics.TEXT_JUSTIFY_CENTER);
         }
 
         if (handsOnTop) {
@@ -714,7 +728,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         dc.drawText(screenWidth - 30, screenRadius, font, hrText, Graphics.TEXT_JUSTIFY_RIGHT|Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    function drawGraph(dc, iterator, graphPosition, decimalCount, divider, minimalRange, showCurrentValue) {
+    function drawGraph(dc, iterator, graphPosition, decimalCount, divider, minimalRange, showCurrentValue, graphType) {
         var leftX = 45;
         var topY;
         var currentValue;
@@ -733,8 +747,16 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             maxVal = avg + (minimalRange / 2.0);
             range = minimalRange;
         }
+
         var minValStr = minVal.format("%.0f");
         var maxValStr = maxVal.format("%.0f");
+        if (graphType == 1 && deviceSettings.elevationUnits == System.UNIT_STATUTE) {
+            minValStr = convertM_Ft(minVal).format("%.0f");
+            maxValStr = convertM_Ft(maxVal).format("%.0f");
+        } else if (graphType == 4 && deviceSettings.temperatureUnits == System.UNIT_STATUTE) {
+            minValStr = convertC_F(minVal).format("%.0f");
+            maxValStr = convertC_F(maxVal).format("%.0f");
+        }
 
         var item = iterator.next();
         if (item != null) {
@@ -742,6 +764,11 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             currentValue = value;
             if (value != null) {
                 var valueStr = value.format(stringFormater);
+                if (graphType == 1 && deviceSettings.elevationUnits == System.UNIT_STATUTE) {
+                    valueStr = convertM_Ft(value).format(stringFormater);
+                } else if (graphType == 4 && deviceSettings.temperatureUnits == System.UNIT_STATUTE) {
+                    valueStr = convertC_F(value).format(stringFormater);
+                }
                 //draw latest value
                 if (showCurrentValue == 2) {
                     dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
@@ -791,9 +818,26 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             }
             if (showCurrentValue == 1 && currentValue != null) {
                 dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
+                if (graphType == 1 && deviceSettings.elevationUnits == System.UNIT_STATUTE) {
+                    currentValue = convertM_Ft(currentValue);
+                } else if (graphType == 4 && deviceSettings.temperatureUnits == System.UNIT_STATUTE) {
+                    currentValue = convertC_F(currentValue);
+                }
                 dc.drawText(screenRadius, topY + 2, Graphics.FONT_TINY, (currentValue / divider).format(stringFormater), Graphics.TEXT_JUSTIFY_CENTER);
             }
         }
+    }
+
+    function convertKm_Mi(value) {
+        return (value / 1.609344);
+    }
+
+    function convertM_Ft(value) {
+        return (value * 3.2808);
+    }
+
+    function convertC_F(value) {
+        return ((value * 1.8) + 32);
     }
 
 }

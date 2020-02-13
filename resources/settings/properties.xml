@@ -76,7 +76,7 @@
         <string id="handWidthError">Value range: 1 to 10</string>
         <string id="handsOnTop">Draw hands on top of activity indicators</string>
 
-        <string id="oneColor">One color for all indicators (off or color; color overrides indicator color settings below)</string>
+        <string id="oneColor">One color for all indicators (off or color; color overrides indicator color and graph line color settings below)</string>
 
         <string id="showBatteryIndicator">Show battery indicator</string>
         <string id="battery100Color">Battery 100%-30% color</string>

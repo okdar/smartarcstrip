@@ -409,9 +409,13 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         if (upperGraph > 0 || bottomGraph > 0) {
             graphBordersColor = app.getProperty("graphBordersColor");
             graphLegendColor = app.getProperty("graphLegendColor");
-            graphLineColor = app.getProperty("graphLineColor");
             graphLineWidth = app.getProperty("graphLineWidth");
             graphShowCurrentValue = app.getProperty("graphShowCurrentValue");
+            if (oneColor == offSettingFlag) {
+                graphLineColor = app.getProperty("graphLineColor");
+            } else {
+                graphLineColor = oneColor;
+            }
         }
 
         //ensure that constants will be pre-computed

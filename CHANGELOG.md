@@ -1,3 +1,6 @@
+# 1.0.1 (February 12, 2020)
+* minor bug fix (one color setting is applied also to graph line color)
+
 # 1.0.0 (February 1, 2020)
 * added support for non-metric units
 

@@ -1,3 +1,6 @@
+# 1.0.2 (August 17, 2020)
+* watch face available for model: MARQ™ Golfer
+
 # 1.0.1 (February 12, 2020)
 * minor bug fix (one color setting is applied also to graph line color)
 

@@ -45,6 +45,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     //variables for pre-computation
     var screenWidth;
     var screenRadius;
+    var screenResolutionRatio;
     var arcRadius;
     var twoPI = Math.PI * 2;
     var ticks;
@@ -89,8 +90,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var graphLineColor;
     var graphLineWidth;
     var graphCurrentValueColor;
-    var graphShowCurrentValue;
-
+    
     function initialize() {
         loadUserSettings();
         WatchFace.initialize();
@@ -217,10 +217,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 iter = null;
             }
             if (upperGraph == 1) {
-                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 1, 0, 1.0, 5, graphShowCurrentValue, upperGraph);
+                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 1, 0, 1.0, 5, upperGraph);
             }
             if (bottomGraph == 1) {
-                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 2, 0, 1.0, 5, graphShowCurrentValue, bottomGraph);
+                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 2, 0, 1.0, 5, bottomGraph);
             }
         }
         if (hasPressureHistory) {
@@ -245,10 +245,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 iter = null;
             }
             if (upperGraph == 2) {
-                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 1, 1, 100.0, 5, graphShowCurrentValue, upperGraph);
+                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 1, 1, 100.0, 5, upperGraph);
             }
             if (bottomGraph == 2) {
-                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 2, 1, 100.0, 5, graphShowCurrentValue, bottomGraph);
+                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 2, 1, 100.0, 5, bottomGraph);
             }
         }
         if (hasHeartRateHistory) {
@@ -304,10 +304,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 iter = null;
             }
             if (upperGraph == 4) {
-                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 1, 1, 1.0, 5, graphShowCurrentValue, upperGraph);
+                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 1, 1, 1.0, 5, upperGraph);
             }
             if (bottomGraph == 4) {
-                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 2, 1, 1.0, 5, graphShowCurrentValue, bottomGraph);
+                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 2, 1, 1.0, 5, bottomGraph);
             }
         }
 
@@ -410,7 +410,6 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             graphBordersColor = app.getProperty("graphBordersColor");
             graphLegendColor = app.getProperty("graphLegendColor");
             graphLineWidth = app.getProperty("graphLineWidth");
-            graphShowCurrentValue = app.getProperty("graphShowCurrentValue");
             if (oneColor == offSettingFlag) {
                 graphLineColor = app.getProperty("graphLineColor");
             } else {
@@ -428,10 +427,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         screenRadius = screenWidth / 2;
 
         //computes hand lenght for watches with different screen resolution than 240x240
-        var handLengthCorrection = screenWidth / 240.0;
-        hourHandLength = (60 * handLengthCorrection).toNumber();
-        minuteHandLength = (90 * handLengthCorrection).toNumber();
-        handsTailLength = (15 * handLengthCorrection).toNumber();
+        screenResolutionRatio = screenWidth / 240.0;
+        hourHandLength = (60 * screenResolutionRatio).toNumber();
+        minuteHandLength = (90 * screenResolutionRatio).toNumber();
+        handsTailLength = (15 * screenResolutionRatio).toNumber();
 
         showTicks = ((ticksColor == offSettingFlag) ||
             (ticksColor != offSettingFlag && ticks1MinWidth == 0 && ticks5MinWidth == 0 && ticks15MinWidth == 0)) ? false : true;
@@ -732,14 +731,14 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         dc.drawText(screenWidth - 30, screenRadius, font, hrText, Graphics.TEXT_JUSTIFY_RIGHT|Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    function drawGraph(dc, iterator, graphPosition, decimalCount, divider, minimalRange, showCurrentValue, graphType) {
+    function drawGraph(dc, iterator, graphPosition, decimalCount, divider, minimalRange, graphType) {
         var leftX = 45;
         var topY;
         var currentValue;
         if (graphPosition == 1) {
-            topY = 65;
+            topY = 65 * screenResolutionRatio;
         } else {
-            topY = 140;
+            topY = 140 * screenResolutionRatio;
         }
         var stringFormater =  "%." + decimalCount + "f";
         var minVal = Math.floor(iterator.getMin() / divider);
@@ -774,14 +773,12 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                     valueStr = convertC_F(value).format(stringFormater);
                 }
                 //draw latest value
-                if (showCurrentValue == 2) {
-                    dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
-                    dc.drawText(screenRadius, topY + 2, Graphics.FONT_TINY, (value / divider).format(stringFormater), Graphics.TEXT_JUSTIFY_CENTER);
-                }
+                dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(leftX, topY + 6, Graphics.FONT_XTINY, (value / divider).format(stringFormater), Graphics.TEXT_JUSTIFY_LEFT);
                 //draw min and max values
                 dc.setColor(graphLegendColor, Graphics.COLOR_TRANSPARENT);
-                dc.drawText(leftX, topY - 6, Graphics.FONT_XTINY, maxValStr, Graphics.TEXT_JUSTIFY_LEFT);
-                dc.drawText(leftX, topY + 35 - 18, Graphics.FONT_XTINY, minValStr, Graphics.TEXT_JUSTIFY_LEFT);
+                dc.drawText(leftX, topY - 12, Graphics.FONT_XTINY, maxValStr, Graphics.TEXT_JUSTIFY_LEFT);
+                dc.drawText(leftX, topY + 41 - 18, Graphics.FONT_XTINY, minValStr, Graphics.TEXT_JUSTIFY_LEFT);
                 //draw min and max lines
                 var maxX = leftX + (dc.getTextDimensions(maxValStr, Graphics.FONT_XTINY))[0] + 5;
                 var minX = leftX + (dc.getTextDimensions(minValStr, Graphics.FONT_XTINY))[0] + 5;
@@ -819,15 +816,6 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 } else {
                     return;
                 }
-            }
-            if (showCurrentValue == 1 && currentValue != null) {
-                dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
-                if (graphType == 1 && deviceSettings.elevationUnits == System.UNIT_STATUTE) {
-                    currentValue = convertM_Ft(currentValue);
-                } else if (graphType == 4 && deviceSettings.temperatureUnits == System.UNIT_STATUTE) {
-                    currentValue = convertC_F(currentValue);
-                }
-                dc.drawText(screenRadius, topY + 2, Graphics.FONT_TINY, (currentValue / divider).format(stringFormater), Graphics.TEXT_JUSTIFY_CENTER);
             }
         }
     }

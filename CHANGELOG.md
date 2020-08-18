@@ -1,4 +1,4 @@
-# 1.1.0 (August 18, 2020)
+# 1.1.1 (August 18, 2020)
 hotfix - don't display heart rate latest value in graph (shown in a dedicated field, would be duplicated)
 
 # 1.1.0 (August 18, 2020)

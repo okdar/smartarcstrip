@@ -1,3 +1,6 @@
+# 1.1.0 (August 18, 2020)
+* watch face available for models: Captain Marvel, Darth Vader™, fēnix® 5S, fēnix® 6, fēnix® 6 Pro, fēnix® 6 Sapphire, quatix® 6, fēnix® Chronos, fēnix® 6X Pro, fēnix® 6X Sapphire, fēnix® 6X Pro Solar, tactix® Delta Sapphire, quatix® 6X, First Avenger, Rey™, vívoactive® 4, vívoactive® 4S
+
 # 1.0.2 (August 17, 2020)
 * watch face available for model: MARQ™ Golfer
 

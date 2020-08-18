@@ -217,10 +217,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 iter = null;
             }
             if (upperGraph == 1) {
-                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 1, 0, 1.0, 5, upperGraph);
+                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 1, 0, 1.0, 5, true, upperGraph);
             }
             if (bottomGraph == 1) {
-                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 2, 0, 1.0, 5, bottomGraph);
+                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 2, 0, 1.0, 5, true, bottomGraph);
             }
         }
         if (hasPressureHistory) {
@@ -245,10 +245,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 iter = null;
             }
             if (upperGraph == 2) {
-                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 1, 1, 100.0, 5, upperGraph);
+                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 1, 1, 100.0, 2, true, upperGraph);
             }
             if (bottomGraph == 2) {
-                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 2, 1, 100.0, 5, bottomGraph);
+                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 2, 1, 100.0, 2, true, bottomGraph);
             }
         }
         if (hasHeartRateHistory) {
@@ -273,10 +273,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 //                iter = null;
 //            }
             if (upperGraph == 3) {
-                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 1, 0, 1.0, 5, 0, upperGraph);
+                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 1, 0, 1.0, 5, false,upperGraph);
             }
             if (bottomGraph == 3) {
-                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 2, 0, 1.0, 5, 0, bottomGraph);
+                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 2, 0, 1.0, 5, false, bottomGraph);
             }
         }
         if (hasTemperatureHistory) {
@@ -304,10 +304,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 iter = null;
             }
             if (upperGraph == 4) {
-                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 1, 1, 1.0, 5, upperGraph);
+                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 1, 1, 1.0, 5, true, upperGraph);
             }
             if (bottomGraph == 4) {
-                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 2, 1, 1.0, 5, bottomGraph);
+                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 2, 1, 1.0, 5, true, bottomGraph);
             }
         }
 
@@ -731,7 +731,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         dc.drawText(screenWidth - 30, screenRadius, font, hrText, Graphics.TEXT_JUSTIFY_RIGHT|Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    function drawGraph(dc, iterator, graphPosition, decimalCount, divider, minimalRange, graphType) {
+    function drawGraph(dc, iterator, graphPosition, decimalCount, divider, minimalRange, showLatestValue, graphType) {
         var leftX = 45;
         var topY;
         var currentValue;
@@ -773,8 +773,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                     valueStr = convertC_F(value).format(stringFormater);
                 }
                 //draw latest value
-                dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
-                dc.drawText(leftX, topY + 6, Graphics.FONT_XTINY, (value / divider).format(stringFormater), Graphics.TEXT_JUSTIFY_LEFT);
+                if (showLatestValue) {
+                	dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
+                	dc.drawText(leftX, topY + 6, Graphics.FONT_XTINY, (value / divider).format(stringFormater), Graphics.TEXT_JUSTIFY_LEFT);
+                }
                 //draw min and max values
                 dc.setColor(graphLegendColor, Graphics.COLOR_TRANSPARENT);
                 dc.drawText(leftX, topY - 12, Graphics.FONT_XTINY, maxValStr, Graphics.TEXT_JUSTIFY_LEFT);

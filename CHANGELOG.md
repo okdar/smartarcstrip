@@ -1,3 +1,6 @@
+# 1.1.2 (December 22, 2020)
+* watch face available for models: D2™ Air, Descent™ Mk2 / Descent™ Mk2i, Forerunner® 745
+
 # 1.1.1 (August 18, 2020)
 hotfix - don't display heart rate latest value in graph (shown in a dedicated field, would be duplicated)
 

@@ -41,6 +41,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var precompute;
     var lastMeasuredHR;
     var deviceSettings;
+    var powerSaverDrawn = false;
 
     //variables for pre-computation
     var screenWidth;
@@ -56,6 +57,9 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var arcPenWidth = 10;
     var hrTextDimension;
     var halfHRTextWidth;
+    var startPowerSaverMin;
+    var endPowerSaverMin;
+    var powerSaverIconRatio;
 
     //user settings
     var bgColor;
@@ -90,7 +94,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var graphLineColor;
     var graphLineWidth;
     var graphCurrentValueColor;
-    
+    var powerSaver;
+    var powerSaverRefreshInterval;
+    var powerSaverIconColor;
+
     function initialize() {
         loadUserSettings();
         WatchFace.initialize();
@@ -139,6 +146,18 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
     //update the view
     function onUpdate(dc) {
+        var clockTime = System.getClockTime();
+
+		//refresh whole screen before drawing power saver icon
+        if (powerSaver && shouldPowerSave() && !isAwake && powerSaverDrawn) {
+            //should be screen refreshed in given intervals?
+            if (powerSaverRefreshInterval == -999 || !(clockTime.min % powerSaverRefreshInterval == 0)) {
+                return;
+            }
+        }
+
+        powerSaverDrawn = false;
+
         deviceSettings = System.getDeviceSettings();
 
         //compute what does not need to be computed on each update
@@ -334,6 +353,11 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         //output the offscreen buffers to the main display if required.
         drawBackground(dc);
 
+        if (powerSaver && shouldPowerSave() && !isAwake) {
+            drawPowerSaverIcon(dc);
+            return;
+        }
+
         if (partialUpdatesAllowed && hrColor != offSettingFlag) {
             onPartialUpdate(dc);
         }
@@ -417,8 +441,38 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             }
         }
 
+        var power = app.getProperty("powerSaver");
+        if (power == 1) {
+        	powerSaver = false;
+    	} else {
+    		powerSaver = true;
+            var powerSaverBeginning;
+            var powerSaverEnd;
+            if (power == 2) {
+                powerSaverBeginning = app.getProperty("powerSaverBeginning");
+                powerSaverEnd = app.getProperty("powerSaverEnd");
+            } else {
+                powerSaverBeginning = "00:00";
+                powerSaverEnd = "23:59";
+            }
+            startPowerSaverMin = parsePowerSaverTime(powerSaverBeginning);
+            if (startPowerSaverMin == -1) {
+                powerSaver = false;
+            } else {
+                endPowerSaverMin = parsePowerSaverTime(powerSaverEnd);
+                if (endPowerSaverMin == -1) {
+                    powerSaver = false;
+                }
+            }
+        }
+		powerSaverRefreshInterval = app.getProperty("powerSaverRefreshInterval");
+		powerSaverIconColor = app.getProperty("powerSaverIconColor");
+
         //ensure that constants will be pre-computed
         precompute = true;
+
+        //ensure that screen will be refreshed when settings are changed 
+    	powerSaverDrawn = false;   	
     }
 
     //pre-compute values which don't need to be computed on each update
@@ -439,6 +493,11 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             computeTicks();
         }
 
+        powerSaverIconRatio = 1.0 * screenResolutionRatio; //big icon
+        if (powerSaverRefreshInterval != -999) {
+            powerSaverIconRatio = 0.6 * screenResolutionRatio; //small icon
+        }
+
         arcRadius = screenRadius - (arcPenWidth / 2);
 
         hrTextDimension = dc.getTextDimensions("888", Graphics.FONT_TINY); //to compute correct clip boundaries
@@ -446,6 +505,21 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
         //constants pre-computed, doesn't need to be computed again
         precompute = false;
+    }
+
+    function parsePowerSaverTime(time) {
+        var pos = time.find(":");
+        if (pos != null) {
+            var hour = time.substring(0, pos).toNumber();
+            var min = time.substring(pos + 1, time.length()).toNumber();
+            if (hour != null && min != null) {
+                return (hour * 60) + min;
+            } else {
+                return -1;
+            }
+        } else {
+            return -1;
+        }
     }
 
     function computeTicks() {
@@ -615,6 +689,13 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
     //Handle the partial update event
     function onPartialUpdate(dc) {
+		//refresh whole screen before drawing power saver icon
+        if (powerSaver && shouldPowerSave() && !isAwake && powerSaverDrawn) {
+    		return;
+    	}
+
+        powerSaverDrawn = false;
+
         var refreshHR = false;
         var clockSeconds = System.getClockTime().sec;
 
@@ -637,6 +718,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         //draw HR
         if (hrColor != offSettingFlag) {
             drawHR(dc, refreshHR);
+        }
+        
+        if (powerSaver && shouldPowerSave() && !isAwake) {
+            requestUpdate();
         }
     }
 
@@ -834,4 +919,39 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         return ((value * 1.8) + 32);
     }
 
+    function shouldPowerSave() {
+        var refreshDisplay = true;
+        var time = System.getClockTime();
+        var timeMinOfDay = (time.hour * 60) + time.min;
+        
+        if (startPowerSaverMin <= endPowerSaverMin) {
+        	if ((startPowerSaverMin <= timeMinOfDay) && (timeMinOfDay < endPowerSaverMin)) {
+        		refreshDisplay = false;
+        	}
+        } else {
+        	if ((startPowerSaverMin <= timeMinOfDay) || (timeMinOfDay < endPowerSaverMin)) {
+        		refreshDisplay = false;
+        	}        
+        }
+
+        return !refreshDisplay;
+    }
+
+    function drawPowerSaverIcon(dc) {
+        dc.setColor(handsColor, Graphics.COLOR_TRANSPARENT);
+        dc.fillCircle(screenRadius, screenRadius, 45 * powerSaverIconRatio);
+        dc.setColor(bgColor, Graphics.COLOR_TRANSPARENT);
+        dc.fillCircle(screenRadius, screenRadius, 40 * powerSaverIconRatio);
+        dc.setColor(handsColor, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(screenRadius - (13 * powerSaverIconRatio), screenRadius - (23 * powerSaverIconRatio), 26 * powerSaverIconRatio, 51 * powerSaverIconRatio);
+        dc.fillRectangle(screenRadius - (4 * powerSaverIconRatio), screenRadius - (27 * powerSaverIconRatio), 8 * powerSaverIconRatio, 5 * powerSaverIconRatio);
+        if (oneColor == offSettingFlag) {
+            dc.setColor(powerSaverIconColor, Graphics.COLOR_TRANSPARENT);
+        } else {
+            dc.setColor(oneColor, Graphics.COLOR_TRANSPARENT);
+        }
+        dc.fillRectangle(screenRadius - (10 * powerSaverIconRatio), screenRadius - (20 * powerSaverIconRatio), 20 * powerSaverIconRatio, 45 * powerSaverIconRatio);
+
+        powerSaverDrawn = true;
+    }
 }

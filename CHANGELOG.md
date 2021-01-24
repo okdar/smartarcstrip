@@ -1,3 +1,6 @@
+# 1.2.0 (January 24, 2021)
+* power saver
+
 # 1.1.2 (December 22, 2020)
 * watch face available for models: D2™ Air, Descent™ Mk2 / Descent™ Mk2i, Forerunner® 745
 

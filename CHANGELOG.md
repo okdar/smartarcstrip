@@ -1,5 +1,5 @@
 # 1.2.1 (April 9, 2021)
-* watch face available Enduro™
+* watch face available for Enduro™
 
 # 1.2.0 (January 24, 2021)
 * power saver

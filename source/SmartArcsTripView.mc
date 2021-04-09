@@ -695,7 +695,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     	}
 
         powerSaverDrawn = false;
-
+        
         var refreshHR = false;
         var clockSeconds = System.getClockTime().sec;
 
@@ -714,6 +714,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         if(!fullScreenRefresh) {
             drawBackground(dc);
         }
+
+        drawCompass(dc);
 
         //draw HR
         if (hrColor != offSettingFlag) {
@@ -739,29 +741,6 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         if( null != offscreenBuffer ) {
             dc.drawBitmap(0, 0, offscreenBuffer);
         }
-    }
-
-    //Compute a bounding box from the passed in points
-    function getBoundingBox( points ) {
-        var min = [9999,9999];
-        var max = [0,0];
-
-        for (var i = 0; i < points.size(); ++i) {
-            if(points[i][0] < min[0]) {
-                min[0] = points[i][0];
-            }
-            if(points[i][1] < min[1]) {
-                min[1] = points[i][1];
-            }
-            if(points[i][0] > max[0]) {
-                max[0] = points[i][0];
-            }
-            if(points[i][1] > max[1]) {
-                max[1] = points[i][1];
-            }
-        }
-
-        return [min, max];
     }
 
 /*
@@ -954,4 +933,50 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
         powerSaverDrawn = true;
     }
+    
+	function drawCompass(dc){
+        var activityInfo = Activity.getActivityInfo();
+        var heading;
+        if (activityInfo != null) {
+        	heading = activityInfo.currentHeading;
+        } else {
+        	return;
+    	}
+
+        dc.setClip(screenRadius - 25, screenRadius - 19, 50, 38);
+
+        dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
+        //debug rectangle
+//        dc.drawRectangle(screenRadius - 25, screenRadius - 19, 50, 38);
+
+        if (graphBordersColor != offSettingFlag) {
+            dc.setColor(bgColor, Graphics.COLOR_TRANSPARENT);
+            dc.fillCircle(screenRadius, screenRadius, 25);
+            dc.setColor(graphBordersColor, Graphics.COLOR_TRANSPARENT);
+            dc.setPenWidth(1);            
+            dc.drawCircle(screenRadius, screenRadius, 25);
+        }
+
+    	if (heading == null) {
+    		return;
+		}
+
+		var radius = 16;
+		
+		dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
+	
+		var xy1 = pol2Cart(heading, radius);
+		var xy2 = pol2Cart(heading+135*Math.PI/180, radius);
+		var xy4 = pol2Cart(heading, 1);
+		var xy6 = pol2Cart(heading+225*Math.PI/180, radius);
+		dc.fillPolygon([xy1, xy2, xy4, xy6]);
+	}
+    
+	function pol2Cart(radian, radius) {
+		var x = screenRadius - radius * Math.sin(radian);
+		var y = screenRadius - radius * Math.cos(radian);
+		 
+		return [Math.ceil(x), Math.ceil(y)];
+	}
+
 }

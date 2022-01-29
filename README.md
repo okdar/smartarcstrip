@@ -27,3 +27,4 @@ Arc indicators around the screen display:
 * do not disturb status
 * number of alarms. First alarm is displayed as five minutes arc, each other as one minute arc.
 * heart rate (on watches supporting partial update)
+* sunrise, sunset and civil twilights

@@ -19,6 +19,7 @@
 using Toybox.Application;
 using Toybox.Graphics;
 using Toybox.Lang;
+using Toybox.Position;
 using Toybox.SensorHistory;
 using Toybox.System;
 using Toybox.Time;
@@ -60,6 +61,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var startPowerSaverMin;
     var endPowerSaverMin;
     var powerSaverIconRatio;
+	var sunriseStartAngle = 0;
+	var sunriseEndAngle = 0;
+	var sunsetStartAngle = 0;
+	var sunsetEndAngle = 0;
 
     //user settings
     var bgColor;
@@ -97,6 +102,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var powerSaver;
     var powerSaverRefreshInterval;
     var powerSaverIconColor;
+    var sunriseColor;
+    var sunsetColor;
 
     function initialize() {
         loadUserSettings();
@@ -165,6 +172,11 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             computeConstants(dc);
         }
 
+		//recompute sunrise/sunset constants every hour - to address new location when traveling
+		if (clockTime.min == 0) {
+			computeSunConstants();
+		}
+
         //we always want to refresh the full screen when we get a regular onUpdate call.
         fullScreenRefresh = true;
 
@@ -198,6 +210,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         if (alarmColor != offSettingFlag) {
             drawAlarms(targetDc, deviceSettings.alarmCount);
         }
+
+    	drawSun(targetDc);
 
         if (showTicks) {
             drawTicks(targetDc);
@@ -393,11 +407,15 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             bluetoothColor = app.getProperty("bluetoothColor");
             dndColor = app.getProperty("dndColor");
             alarmColor = app.getProperty("alarmColor");
+            sunriseColor = app.getProperty("sunriseColor");
+			sunsetColor = app.getProperty("sunsetColor");
         } else {
             notificationColor = oneColor;
             bluetoothColor = oneColor;
             dndColor = oneColor;
             alarmColor = oneColor;
+            sunriseColor = oneColor;
+			sunsetColor = oneColor;
         }
         bgColor = app.getProperty("bgColor");
         ticksColor = app.getProperty("ticksColor");
@@ -503,6 +521,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         hrTextDimension = dc.getTextDimensions("888", Graphics.FONT_TINY); //to compute correct clip boundaries
         halfHRTextWidth = hrTextDimension[0] / 2;
 
+		computeSunConstants();
+
         //constants pre-computed, doesn't need to be computed again
         precompute = false;
     }
@@ -524,10 +544,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
     function computeTicks() {
         var angle;
-        ticks = new [31];
-        //to save the memory compute only half of the ticks, second half will be mirrored.
+        ticks = new [16];
+        //to save the memory compute only a quarter of the ticks, the rest will be mirrored.
         //I believe it will still save some CPU utilization
-        for (var i = 0; i < 31; i++) {
+        for (var i = 0; i < 16; i++) {
             angle = i * twoPI / 60.0;
             if ((i % 15) == 0) { //quarter tick
                 if (ticks15MinWidth > 0) {
@@ -634,15 +654,29 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     function drawTicks(dc) {
         var coord = new [4];
         dc.setColor(ticksColor, Graphics.COLOR_TRANSPARENT);
-        for (var i = 0; i < 31; i++) {
+        for (var i = 0; i < 16; i++) {
+        	//30-45 ticks
             if (ticks[i] != null) {
                 dc.fillPolygon(ticks[i]);
             }
 
-            //mirror pre-computed ticks from the left side to the right side
-            if (i > 0 && i <30 && ticks[i] != null) {
+            //mirror pre-computed ticks
+            if (i >= 0 && i <= 15 && ticks[i] != null) {
+            	//15-30 ticks
                 for (var j = 0; j < 4; j++) {
                     coord[j] = [screenWidth - ticks[i][j][0], ticks[i][j][1]];
+                }
+                dc.fillPolygon(coord);
+
+				//45-60 ticks
+                for (var j = 0; j < 4; j++) {
+                    coord[j] = [ticks[i][j][0], screenWidth - ticks[i][j][1]];
+                }
+                dc.fillPolygon(coord);
+
+				//0-15 ticks
+                for (var j = 0; j < 4; j++) {
+                    coord[j] = [screenWidth - ticks[i][j][0], screenWidth - ticks[i][j][1]];
                 }
                 dc.fillPolygon(coord);
             }
@@ -954,4 +988,41 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
         powerSaverDrawn = true;
     }
+
+	function computeSunConstants() {
+    	var posInfo = Toybox.Position.getInfo();
+    	if (posInfo != null && posInfo.position != null) {
+	    	var sc = new SunCalc();
+	    	var time_now = Time.now();    	
+	    	var loc = posInfo.position.toRadians();		
+	        sunriseStartAngle = computeSunAngle(sc.calculate(time_now, loc, SunCalc.DAWN));	        
+	        sunriseEndAngle = computeSunAngle(sc.calculate(time_now, loc, SunCalc.SUNRISE));
+	        sunsetStartAngle = computeSunAngle(sc.calculate(time_now, loc, SunCalc.SUNSET));
+	        sunsetEndAngle = computeSunAngle(sc.calculate(time_now, loc, SunCalc.DUSK));
+        }
+	}
+
+	function computeSunAngle(time) {
+        var timeInfo = Time.Gregorian.info(time, Time.FORMAT_SHORT);       
+        var angle = ((timeInfo.hour % 12) * 60.0) + timeInfo.min;
+        angle = angle / (12 * 60.0) * twoPI;
+        return -(angle - Math.PI/2) * 180 / Math.PI;	
+	}
+
+	function drawSun(dc) {
+        dc.setPenWidth(7);
+
+        //draw sunrise
+        if (sunriseColor != offSettingFlag) {
+	        dc.setColor(sunriseColor, Graphics.COLOR_TRANSPARENT);
+			dc.drawArc(screenRadius, screenRadius, screenRadius - 17, Graphics.ARC_CLOCKWISE, sunriseStartAngle, sunriseEndAngle);
+		}
+
+        //draw sunset
+        if (sunsetColor != offSettingFlag) {
+	        dc.setColor(sunsetColor, Graphics.COLOR_TRANSPARENT);
+			dc.drawArc(screenRadius, screenRadius, screenRadius - 13, Graphics.ARC_CLOCKWISE, sunsetStartAngle, sunsetEndAngle);
+		}
+	}
+	
 }

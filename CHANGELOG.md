@@ -1,3 +1,6 @@
+# 1.3.1 (March 6, 2022)
+* small bugfix for twilights indicator
+
 # 1.3.0 (Jan 29, 2022)
 * added sunrise, sunset and civil twilights (powered by https://github.com/haraldh/SunCalc library)
 

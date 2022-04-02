@@ -1,3 +1,6 @@
+# 1.3.2 (April 2, 2022)
+* twilights indicator fix - hide indicator if position is not available
+
 # 1.3.1 (March 6, 2022)
 * small bugfix for twilights indicator
 

@@ -104,6 +104,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var powerSaverIconColor;
     var sunriseColor;
     var sunsetColor;
+	var locationLatitude;
+	var locationLongitude;
 
     function initialize() {
         loadUserSettings();
@@ -485,6 +487,9 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         }
 		powerSaverRefreshInterval = app.getProperty("powerSaverRefreshInterval");
 		powerSaverIconColor = app.getProperty("powerSaverIconColor");
+		
+		locationLatitude = app.getProperty("locationLatitude");
+		locationLongitude = app.getProperty("locationLongitude");
 
         //ensure that constants will be pre-computed
         precompute = true;
@@ -994,7 +999,21 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     	if (posInfo != null && posInfo.position != null) {
 	    	var sc = new SunCalc();
 	    	var time_now = Time.now();    	
-	    	var loc = posInfo.position.toRadians();		
+	    	var loc = posInfo.position.toRadians();
+    		var hasLocation = (loc[0].format("%.2f").equals("3.14") && loc[1].format("%.2f").equals("3.14")) || (loc[0] == 0 && loc[1] == 0) ? false : true;
+
+	    	if (!hasLocation && locationLatitude != -999) {
+	    		loc[0] = locationLatitude;
+	    		loc[1] = locationLongitude;
+	    	}
+
+	    	if (hasLocation) {
+				Application.getApp().setProperty("locationLatitude", loc[0]);
+				Application.getApp().setProperty("locationLongitude", loc[1]);
+				locationLatitude = loc[0];
+				locationLongitude = loc[1];
+			}
+			
 	        sunriseStartAngle = computeSunAngle(sc.calculate(time_now, loc, SunCalc.DAWN));	        
 	        sunriseEndAngle = computeSunAngle(sc.calculate(time_now, loc, SunCalc.SUNRISE));
 	        sunsetStartAngle = computeSunAngle(sc.calculate(time_now, loc, SunCalc.SUNSET));
@@ -1013,7 +1032,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         dc.setPenWidth(7);
 
         //draw sunrise
-        if (sunriseColor != offSettingFlag) {
+        if (sunriseColor != offSettingFlag && locationLatitude != -999) {
 	        dc.setColor(sunriseColor, Graphics.COLOR_TRANSPARENT);
 	        if (sunriseStartAngle > sunriseEndAngle) {
 				dc.drawArc(screenRadius, screenRadius, screenRadius - 17, Graphics.ARC_CLOCKWISE, sunriseStartAngle, sunriseEndAngle);
@@ -1023,7 +1042,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 		}
 
         //draw sunset
-        if (sunsetColor != offSettingFlag) {
+        if (sunsetColor != offSettingFlag && locationLatitude != -999) {
 	        dc.setColor(sunsetColor, Graphics.COLOR_TRANSPARENT);
 	        if (sunsetStartAngle > sunsetEndAngle) {
 				dc.drawArc(screenRadius, screenRadius, screenRadius - 13, Graphics.ARC_CLOCKWISE, sunsetStartAngle, sunsetEndAngle);

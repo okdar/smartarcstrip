@@ -104,8 +104,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var powerSaverIconColor;
     var sunriseColor;
     var sunsetColor;
-	var locationLatitude;
-	var locationLongitude;
+	var locationLatitude = -999;
+	var locationLongitude = -999;
 
     function initialize() {
         loadUserSettings();
@@ -488,8 +488,12 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 		powerSaverRefreshInterval = app.getProperty("powerSaverRefreshInterval");
 		powerSaverIconColor = app.getProperty("powerSaverIconColor");
 		
-		locationLatitude = app.getProperty("locationLatitude");
-		locationLongitude = app.getProperty("locationLongitude");
+//		locationLatitude = app.getProperty("locationLatitude");
+//		locationLongitude = app.getProperty("locationLongitude");
+//		if (locationLatitude == null || locationLongitude == null) {
+//			locationLatitude = -999;
+//			locationLongitude = -999;
+//		}
 
         //ensure that constants will be pre-computed
         precompute = true;
@@ -1008,8 +1012,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 	    	}
 
 	    	if (hasLocation) {
-				Application.getApp().setProperty("locationLatitude", loc[0]);
-				Application.getApp().setProperty("locationLongitude", loc[1]);
+//				Application.getApp().setProperty("locationLatitude", loc[0]);
+//				Application.getApp().setProperty("locationLongitude", loc[1]);
 				locationLatitude = loc[0];
 				locationLongitude = loc[1];
 			}

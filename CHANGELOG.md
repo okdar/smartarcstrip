@@ -1,3 +1,6 @@
+# 1.4.0 (April 28, 2022)
+* 64 colors support
+
 # 1.3.3 (April 10, 2022)
 * small bugfix
 

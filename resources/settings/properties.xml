@@ -44,15 +44,9 @@
 
         <property id="sunriseColor" type="number">0xAA0000</property>
         <property id="sunsetColor" type="number">0x0000FF</property>
-<!--
         <property id="locationLatitude" type="number">-999</property>
         <property id="locationLongitude" type="number">-999</property>
--->
 
-<!--
-        <property id="dateFormat" type="number">1</property>
-        <property id="dateColor" type="number">0xAAAAAA</property>
--->
         <property id="hrColor" type="number">0xAAAAAA</property>
         <property id="hrRefreshInterval" type="number">3</property>
         
@@ -105,16 +99,6 @@
 
         <string id="sunriseColor">Sunrise indicator color (off or color)</string>
         <string id="sunsetColor">Sunset indicator color (off or color)</string>
-
-<!--
-        <string id="dateColor">Date color (off or color)</string>
-        <string id="dateFormat">Date format</string>
-        <string id="dateFormat1">DayOfWeek Day</string>
-        <string id="dateFormat2">Day DayOfWeek</string>
-        <string id="dateFormat3">Day Month</string>
-        <string id="dateFormat4">Month Day</string>
-        <string id="dateFormat0">Day</string>
--->
 
         <string id="white">White</string>
         <string id="ltGray">Light Gray</string>
@@ -1218,37 +1202,6 @@
             </settingConfig>
         </setting>
 
-<!--
-        <setting propertyKey="@Properties.dateColor" title="@Strings.dateColor">
-            <settingConfig type="list">
-                <listEntry value="-999">@Strings.off</listEntry>
-                <listEntry value="0xFFFFFF">@Strings.white</listEntry>
-                <listEntry value="0xAAAAAA">@Strings.ltGray</listEntry>
-                <listEntry value="0x555555">@Strings.dkGray</listEntry>
-                <listEntry value="0x000000">@Strings.black</listEntry>
-                <listEntry value="0xFF0000">@Strings.red</listEntry>
-                <listEntry value="0xAA0000">@Strings.dkRed</listEntry>
-                <listEntry value="0xFF5500">@Strings.orange</listEntry>
-                <listEntry value="0xFFAA00">@Strings.yellow</listEntry>
-                <listEntry value="0x00FF00">@Strings.green</listEntry>
-                <listEntry value="0x00AA00">@Strings.dkGreen</listEntry>
-                <listEntry value="0x00AAFF">@Strings.blue</listEntry>
-                <listEntry value="0x0000FF">@Strings.dkBlue</listEntry>
-                <listEntry value="0xAA00FF">@Strings.purple</listEntry>
-                <listEntry value="0xFF00FF">@Strings.pink</listEntry>
-            </settingConfig>
-        </setting>
-        <setting propertyKey="@Properties.dateFormat" title="@Strings.dateFormat">
-            <settingConfig type="list">
-                <listEntry value="0">@Strings.dateFormat0</listEntry>
-                <listEntry value="1">@Strings.dateFormat1</listEntry>
-                <listEntry value="2">@Strings.dateFormat2</listEntry>
-                <listEntry value="3">@Strings.dateFormat3</listEntry>
-                <listEntry value="4">@Strings.dateFormat4</listEntry>
-            </settingConfig>
-        </setting>
--->
- 
         <setting propertyKey="@Properties.hrColor" title="@Strings.hrColor">
             <settingConfig type="list">
                 <listEntry value="-999">@Strings.off</listEntry>

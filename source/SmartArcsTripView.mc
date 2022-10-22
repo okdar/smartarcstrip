@@ -28,6 +28,11 @@ using Toybox.WatchUi;
 
 class SmartArcsTripView extends WatchUi.WatchFace {
 
+    //TRYING TO KEEP AS MUCH PRE-COMPUTED VALUES AS POSSIBLE IN MEMORY TO SAVE CPU UTILIZATION
+    //AND HOPEFULLY PROLONG BATTERY LIFE. PRE-COMPUTED VARIABLES DON'T NEED TO BE COMPUTED
+    //AGAIN AND AGAIN ON EACH SCREEN UPDATE. THAT'S THE REASON FOR LONG LIST OF GLOBAL VARIABLES.
+
+    //global variables
     var isAwake = false;
     var partialUpdatesAllowed = false;
     var hasElevationHistory = false;
@@ -39,23 +44,19 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var offscreenBuffer;
     var offSettingFlag = -999;
     var font = Graphics.FONT_TINY;
-    var precompute;
     var lastMeasuredHR;
     var deviceSettings;
     var powerSaverDrawn = false;
+    var sunArcsOffset;
 
-    //variables for pre-computation
+    //global variables for pre-computation
     var screenWidth;
     var screenRadius;
     var screenResolutionRatio;
-    var arcRadius;
-    var twoPI = Math.PI * 2;
     var ticks;
-    var showTicks;
     var hourHandLength;
     var minuteHandLength;
     var handsTailLength;
-    var arcPenWidth = 10;
     var hrTextDimension;
     var halfHRTextWidth;
     var startPowerSaverMin;
@@ -65,6 +66,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 	var sunriseEndAngle = 0;
 	var sunsetStartAngle = 0;
 	var sunsetEndAngle = 0;
+	var locationLatitude;
+	var locationLongitude;
 
     //user settings
     var bgColor;
@@ -104,13 +107,25 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var powerSaverIconColor;
     var sunriseColor;
     var sunsetColor;
-	var locationLatitude = -999;
-	var locationLongitude = -999;
 
     function initialize() {
-        loadUserSettings();
         WatchFace.initialize();
-        fullScreenRefresh = true;
+    }
+
+    //load resources here
+    function onLayout(dc) {
+        //if this device supports BufferedBitmap, allocate the buffers we use for drawing
+        if (Toybox.Graphics has :BufferedBitmap) {
+            //Allocate a full screen size buffer to draw the background image of the watchface.
+            //This is used to facilitate blanking the second hand during partial updates of the display
+            offscreenBuffer = new Graphics.BufferedBitmap({
+                :width => dc.getWidth(),
+                :height => dc.getHeight()
+            });
+        } else {
+            offscreenBuffer = null;
+        }
+
         partialUpdatesAllowed = (Toybox.WatchUi.WatchFace has :onPartialUpdate);
 
         if (Toybox has :SensorHistory) {
@@ -127,22 +142,11 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 hasTemperatureHistory = true;
             }
         }
-    }
 
-    //load resources here
-    function onLayout(dc) {
-        //if this device supports BufferedBitmap, allocate the buffers we use for drawing
-        if (Toybox.Graphics has :BufferedBitmap) {
-            // Allocate a full screen size buffer with a palette of only 4 colors to draw
-            // the background image of the watchface.  This is used to facilitate blanking
-            // the second hand during partial updates of the display
-            offscreenBuffer = new Graphics.BufferedBitmap({
-                :width => dc.getWidth(),
-                :height => dc.getHeight()
-            });
-        } else {
-            offscreenBuffer = null;
-        }
+        loadUserSettings();
+        computeConstants(dc);
+		computeSunConstants();
+        fullScreenRefresh = true;
 
         curClip = null;
     }
@@ -158,9 +162,9 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         var clockTime = System.getClockTime();
 
 		//refresh whole screen before drawing power saver icon
-        if (powerSaver && shouldPowerSave() && !isAwake && powerSaverDrawn) {
+        if (powerSaverDrawn && shouldPowerSave()) {
             //should be screen refreshed in given intervals?
-            if (powerSaverRefreshInterval == -999 || !(clockTime.min % powerSaverRefreshInterval == 0)) {
+            if (powerSaverRefreshInterval == offSettingFlag || !(clockTime.min % powerSaverRefreshInterval == 0)) {
                 return;
             }
         }
@@ -169,13 +173,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
         deviceSettings = System.getDeviceSettings();
 
-        //compute what does not need to be computed on each update
-        if (precompute) {
-            computeConstants(dc);
-        }
-
-		//recompute sunrise/sunset constants every hour - to address new location when traveling
 		if (clockTime.min == 0) {
+            //recompute sunrise/sunset constants every hour - to address new location when traveling	
 			computeSunConstants();
 		}
 
@@ -198,34 +197,60 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         targetDc.fillCircle(screenRadius, screenRadius, screenRadius + 2);
 
         if (showBatteryIndicator) {
-            drawBattery(targetDc);
-        }
-        if (notificationColor != offSettingFlag) {
-            drawNotifications(targetDc, deviceSettings.notificationCount);
-        }
-        if (bluetoothColor != offSettingFlag) {
-            drawBluetooth(targetDc, deviceSettings.phoneConnected);
-        }
-        if (dndColor != offSettingFlag) {
-            drawDoNotDisturb(targetDc, deviceSettings.doNotDisturb);
-        }
-        if (alarmColor != offSettingFlag) {
-            drawAlarms(targetDc, deviceSettings.alarmCount);
+            var batStat = System.getSystemStats().battery;
+            if (oneColor != offSettingFlag) {
+                drawSmartArc(targetDc, oneColor, Graphics.ARC_CLOCKWISE, 180, 180 - 0.9 * batStat);
+            } else {
+                if (batStat > 30) {
+                    drawSmartArc(targetDc, battery100Color, Graphics.ARC_CLOCKWISE, 180, 180 - 0.9 * batStat);
+                    drawSmartArc(targetDc, battery30Color, Graphics.ARC_CLOCKWISE, 180, 153);
+                    drawSmartArc(targetDc, battery15Color, Graphics.ARC_CLOCKWISE, 180, 166.5);
+                } else if (batStat <= 30 && batStat > 15) {
+                    drawSmartArc(targetDc, battery30Color, Graphics.ARC_CLOCKWISE, 180, 180 - 0.9 * batStat);
+                    drawSmartArc(targetDc, battery15Color, Graphics.ARC_CLOCKWISE, 180, 166.5);
+                } else {
+                    drawSmartArc(targetDc, battery15Color, Graphics.ARC_CLOCKWISE, 180, 180 - 0.9 * batStat);
+                }
+            }
         }
 
-    	drawSun(targetDc);
+        var itemCount = deviceSettings.notificationCount;
+        if (notificationColor != offSettingFlag && itemCount > 0) {
+            if (itemCount < 11) {
+                drawSmartArc(targetDc, notificationColor, Graphics.ARC_CLOCKWISE, 90, 90 - 30 - ((itemCount - 1) * 6));
+            } else {
+                drawSmartArc(targetDc, notificationColor, Graphics.ARC_CLOCKWISE, 90, 0);
+            }
+        }
 
-        if (showTicks) {
+        if (bluetoothColor != offSettingFlag && deviceSettings.phoneConnected) {
+            drawSmartArc(targetDc, bluetoothColor, Graphics.ARC_CLOCKWISE, 0, -30);
+        }
+
+        if (dndColor != offSettingFlag && deviceSettings.doNotDisturb) {
+            drawSmartArc(targetDc, dndColor, Graphics.ARC_COUNTER_CLOCKWISE, 270, -60);
+        }
+
+        itemCount = deviceSettings.alarmCount;
+        if (alarmColor != offSettingFlag && itemCount > 0) {
+            if (itemCount < 11) {
+                drawSmartArc(targetDc, alarmColor, Graphics.ARC_CLOCKWISE, 270, 270 - 30 - ((itemCount - 1) * 6));
+            } else {
+                drawSmartArc(targetDc, alarmColor, Graphics.ARC_CLOCKWISE, 270, 0);
+            }
+        }
+
+        if (locationLatitude != offSettingFlag) {
+    	    drawSun(targetDc);
+        }
+
+        if (ticks != null) {
             drawTicks(targetDc);
         }
 
         if (!handsOnTop) {
-            drawHands(targetDc, System.getClockTime());
+            drawHands(targetDc, clockTime);
         }
-
-//        if (dateColor != offSettingFlag) {
-//            drawDate(targetDc, Time.today());
-//        }
 
         if (hasElevationHistory) {
             if (upperField == 2 || bottomField == 2) {
@@ -258,6 +283,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 drawGraph(targetDc, SensorHistory.getElevationHistory({}), 2, 0, 1.0, 5, true, bottomGraph);
             }
         }
+
         if (hasPressureHistory) {
             if (upperField == 3 || bottomField == 3) {
                 var iter = SensorHistory.getPressureHistory({});
@@ -286,27 +312,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 drawGraph(targetDc, SensorHistory.getPressureHistory({}), 2, 1, 100.0, 2, true, bottomGraph);
             }
         }
+
         if (hasHeartRateHistory) {
-//            if (upperField == 3 || bottomField == 3) {
-//                var iter = SensorHistory.getTemperatureHistory({});
-//                if (iter != null) {
-//                    var item = iter.next();
-//                    var value = null;
-//                    if (item != null) {
-//                        value = item.data;
-//                    }
-//                    if (value != null) {
-//                        targetDc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
-//                        if (upperField == 4) {
-//                            targetDc.drawText(screenRadius, 30, Graphics.FONT_TINY, value.format("%.1f") + StringUtil.utf8ArrayToString([0xC2,0xB0]), Graphics.TEXT_JUSTIFY_CENTER);
-//                        }
-//                        if (bottomField == 4) {
-//                            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 30, Graphics.FONT_TINY, value.format("%.1f") + StringUtil.utf8ArrayToString([0xC2,0xB0]), Graphics.TEXT_JUSTIFY_CENTER);
-//                        }
-//                    }
-//                }
-//                iter = null;
-//            }
             if (upperGraph == 3) {
                 drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 1, 0, 1.0, 5, false,upperGraph);
             }
@@ -314,6 +321,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 2, 0, 1.0, 5, false, bottomGraph);
             }
         }
+
         if (hasTemperatureHistory) {
             if (upperField == 4 || bottomField == 4) {
                 var iter = SensorHistory.getTemperatureHistory({});
@@ -363,13 +371,13 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         }
 
         if (handsOnTop) {
-            drawHands(targetDc, System.getClockTime());
+            drawHands(targetDc, clockTime);
         }
 
         //output the offscreen buffers to the main display if required.
         drawBackground(dc);
 
-        if (powerSaver && shouldPowerSave() && !isAwake) {
+        if (shouldPowerSave()) {
             drawPowerSaverIcon(dc);
             return;
         }
@@ -488,15 +496,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 		powerSaverRefreshInterval = app.getProperty("powerSaverRefreshInterval");
 		powerSaverIconColor = app.getProperty("powerSaverIconColor");
 		
-//		locationLatitude = app.getProperty("locationLatitude");
-//		locationLongitude = app.getProperty("locationLongitude");
-//		if (locationLatitude == null || locationLongitude == null) {
-//			locationLatitude = -999;
-//			locationLongitude = -999;
-//		}
-
-        //ensure that constants will be pre-computed
-        precompute = true;
+		locationLatitude = app.getProperty("locationLatitude");
+		locationLongitude = app.getProperty("locationLongitude");
 
         //ensure that screen will be refreshed when settings are changed 
     	powerSaverDrawn = false;   	
@@ -513,27 +514,19 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         minuteHandLength = (90 * screenResolutionRatio).toNumber();
         handsTailLength = (15 * screenResolutionRatio).toNumber();
 
-        showTicks = ((ticksColor == offSettingFlag) ||
-            (ticksColor != offSettingFlag && ticks1MinWidth == 0 && ticks5MinWidth == 0 && ticks15MinWidth == 0)) ? false : true;
-        if (showTicks) {
+        powerSaverIconRatio = screenResolutionRatio; //big icon
+        if (powerSaverRefreshInterval != offSettingFlag) {
+            powerSaverIconRatio = 0.6 * screenResolutionRatio; //small icon
+        }
+
+        if (!((ticksColor == offSettingFlag) ||
+            (ticksColor != offSettingFlag && ticks1MinWidth == 0 && ticks5MinWidth == 0 && ticks15MinWidth == 0))) {
             //array of ticks coordinates
             computeTicks();
         }
 
-        powerSaverIconRatio = 1.0 * screenResolutionRatio; //big icon
-        if (powerSaverRefreshInterval != -999) {
-            powerSaverIconRatio = 0.6 * screenResolutionRatio; //small icon
-        }
-
-        arcRadius = screenRadius - (arcPenWidth / 2);
-
         hrTextDimension = dc.getTextDimensions("888", Graphics.FONT_TINY); //to compute correct clip boundaries
         halfHRTextWidth = hrTextDimension[0] / 2;
-
-		computeSunConstants();
-
-        //constants pre-computed, doesn't need to be computed again
-        precompute = false;
     }
 
     function parsePowerSaverTime(time) {
@@ -557,7 +550,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         //to save the memory compute only a quarter of the ticks, the rest will be mirrored.
         //I believe it will still save some CPU utilization
         for (var i = 0; i < 16; i++) {
-            angle = i * twoPI / 60.0;
+            angle = i * Math.PI * 2 / 60.0;
             if ((i % 15) == 0) { //quarter tick
                 if (ticks15MinWidth > 0) {
                     ticks[i] = computeTickRectangle(angle, 20, ticks15MinWidth);
@@ -589,75 +582,16 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         for (var i = 0; i < 4; i++) {
             x = (coords[i][0] * cos) - (coords[i][1] * sin) + 0.5;
             y = (coords[i][0] * sin) + (coords[i][1] * cos) + 0.5;
-
             rect[i] = [screenRadius + x, screenRadius + y];
         }
 
         return rect;
     }
 
-    function drawBattery(dc) {
-        var batStat = System.getSystemStats().battery;
-        dc.setPenWidth(arcPenWidth);
-        if (oneColor != offSettingFlag) {
-            dc.setColor(oneColor, Graphics.COLOR_TRANSPARENT);
-            dc.drawArc(screenRadius, screenRadius, arcRadius, Graphics.ARC_CLOCKWISE, 180, 180 - 0.9 * batStat);
-        } else {
-            if (batStat > 30) {
-                dc.setColor(battery100Color, Graphics.COLOR_TRANSPARENT);
-                dc.drawArc(screenRadius, screenRadius, arcRadius, Graphics.ARC_CLOCKWISE, 180, 180 - 0.9 * batStat);
-                dc.setColor(battery30Color, Graphics.COLOR_TRANSPARENT);
-                dc.drawArc(screenRadius, screenRadius, arcRadius, Graphics.ARC_CLOCKWISE, 180, 153);
-                dc.setColor(battery15Color, Graphics.COLOR_TRANSPARENT);
-                dc.drawArc(screenRadius, screenRadius, arcRadius, Graphics.ARC_CLOCKWISE, 180, 166.5);
-            } else if (batStat <= 30 && batStat > 15){
-                dc.setColor(battery30Color, Graphics.COLOR_TRANSPARENT);
-                dc.drawArc(screenRadius, screenRadius, arcRadius, Graphics.ARC_CLOCKWISE, 180, 180 - 0.9 * batStat);
-                dc.setColor(battery15Color, Graphics.COLOR_TRANSPARENT);
-                dc.drawArc(screenRadius, screenRadius, arcRadius, Graphics.ARC_CLOCKWISE, 180, 166.5);
-            } else {
-                dc.setColor(battery15Color, Graphics.COLOR_TRANSPARENT);
-                dc.drawArc(screenRadius, screenRadius, arcRadius, Graphics.ARC_CLOCKWISE, 180, 180 - 0.9 * batStat);
-            }
-        }
-    }
-
-    function drawNotifications(dc, notifications) {
-        if (notifications > 0) {
-            drawItems(dc, notifications, 90, notificationColor);
-        }
-    }
-
-    function drawBluetooth(dc, phoneConnected) {
-        if (phoneConnected) {
-            dc.setColor(bluetoothColor, Graphics.COLOR_TRANSPARENT);
-            dc.setPenWidth(arcPenWidth);
-            dc.drawArc(screenRadius, screenRadius, arcRadius, Graphics.ARC_CLOCKWISE, 0, -30);
-        }
-    }
-
-    function drawDoNotDisturb(dc, doNotDisturb) {
-        if (doNotDisturb) {
-            dc.setColor(dndColor, Graphics.COLOR_TRANSPARENT);
-            dc.setPenWidth(arcPenWidth);
-            dc.drawArc(screenRadius, screenRadius, arcRadius, Graphics.ARC_COUNTER_CLOCKWISE, 270, -60);
-        }
-    }
-
-    function drawAlarms(dc, alarms) {
-        if (alarms > 0) {
-            drawItems(dc, alarms, 270, alarmColor);
-        }
-    }
-
-    function drawItems(dc, count, angle, color) {
+    function drawSmartArc(dc, color, arcDirection, startAngle, endAngle) {
+        dc.setPenWidth(10);
         dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-        dc.setPenWidth(arcPenWidth);
-        if (count < 11) {
-            dc.drawArc(screenRadius, screenRadius, arcRadius, Graphics.ARC_CLOCKWISE, angle, angle - 30 - ((count - 1) * 6));
-        } else {
-            dc.drawArc(screenRadius, screenRadius, arcRadius, Graphics.ARC_CLOCKWISE, angle, angle - 90);
-        }
+        dc.drawArc(screenRadius, screenRadius, screenRadius - 5, arcDirection, startAngle, endAngle);
     }
 
     function drawTicks(dc) {
@@ -697,14 +631,14 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
         //draw hour hand
         hourAngle = ((clockTime.hour % 12) * 60.0) + clockTime.min;
-        hourAngle = hourAngle / (12 * 60.0) * twoPI;
+        hourAngle = hourAngle / (12 * 60.0) * Math.PI * 2;
         if (handsOutlineColor != offSettingFlag) {
             drawHand(dc, handsOutlineColor, computeHandRectangle(hourAngle, hourHandLength + 2, handsTailLength + 2, hourHandWidth + 4));
         }
         drawHand(dc, handsColor, computeHandRectangle(hourAngle, hourHandLength, handsTailLength, hourHandWidth));
 
         //draw minute hand
-        minAngle = (clockTime.min / 60.0) * twoPI;
+        minAngle = (clockTime.min / 60.0) * Math.PI * 2;
         if (handsOutlineColor != offSettingFlag) {
             drawHand(dc, handsOutlineColor, computeHandRectangle(minAngle, minuteHandLength + 2, handsTailLength + 2, minuteHandWidth + 4));
         }
@@ -733,7 +667,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     //Handle the partial update event
     function onPartialUpdate(dc) {
 		//refresh whole screen before drawing power saver icon
-        if (powerSaver && shouldPowerSave() && !isAwake && powerSaverDrawn) {
+        if (powerSaverDrawn && shouldPowerSave()) {
     		return;
     	}
 
@@ -763,7 +697,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             drawHR(dc, refreshHR);
         }
         
-        if (powerSaver && shouldPowerSave() && !isAwake) {
+        if (shouldPowerSave()) {
             requestUpdate();
         }
     }
@@ -774,9 +708,6 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     //onPartialUpdate uses this to blank the second hand from the previous
     //second before outputing the new one.
     function drawBackground(dc) {
-        var width = dc.getWidth();
-        var height = dc.getHeight();
-
         //If we have an offscreen buffer that has been written to
         //draw it to the screen.
         if( null != offscreenBuffer ) {
@@ -806,28 +737,6 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
         return [min, max];
     }
-
-/*
-    function drawDate(dc, today) {
-        var info = Gregorian.info(today, Time.FORMAT_MEDIUM);
-
-        var dateString;
-        switch (dateFormat) {
-            case 0: dateString = info.day;
-                    break;
-            case 1: dateString = Lang.format("$1$ $2$", [info.day_of_week.substring(0, 3), info.day]);
-                    break;
-            case 2: dateString = Lang.format("$1$ $2$", [info.day, info.day_of_week.substring(0, 3)]);
-                    break;
-            case 3: dateString = Lang.format("$1$ $2$", [info.day, info.month.substring(0, 3)]);
-                    break;
-            case 4: dateString = Lang.format("$1$ $2$", [info.month.substring(0, 3), info.day]);
-                    break;
-        }
-        dc.setColor(dateColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(screenWidth - 30, screenRadius, font, dateString, Graphics.TEXT_JUSTIFY_RIGHT|Graphics.TEXT_JUSTIFY_VCENTER);
-    }
-*/
 
     function drawHR(dc, refreshHR) {
         var hr = 0;
@@ -963,6 +872,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     }
 
     function shouldPowerSave() {
+        if (powerSaver && !isAwake) {
         var refreshDisplay = true;
         var time = System.getClockTime();
         var timeMinOfDay = (time.hour * 60) + time.min;
@@ -976,8 +886,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         		refreshDisplay = false;
         	}        
         }
-
         return !refreshDisplay;
+        } else {
+            return false;
+        }
     }
 
     function drawPowerSaverIcon(dc) {
@@ -1006,14 +918,14 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 	    	var loc = posInfo.position.toRadians();
     		var hasLocation = (loc[0].format("%.2f").equals("3.14") && loc[1].format("%.2f").equals("3.14")) || (loc[0] == 0 && loc[1] == 0) ? false : true;
 
-	    	if (!hasLocation && locationLatitude != -999) {
+	    	if (!hasLocation && locationLatitude != offSettingFlag) {
 	    		loc[0] = locationLatitude;
 	    		loc[1] = locationLongitude;
 	    	}
 
 	    	if (hasLocation) {
-//				Application.getApp().setProperty("locationLatitude", loc[0]);
-//				Application.getApp().setProperty("locationLongitude", loc[1]);
+				Application.getApp().setProperty("locationLatitude", loc[0]);
+				Application.getApp().setProperty("locationLongitude", loc[1]);
 				locationLatitude = loc[0];
 				locationLongitude = loc[1];
 			}
@@ -1022,13 +934,22 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 	        sunriseEndAngle = computeSunAngle(sc.calculate(time_now, loc, SunCalc.SUNRISE));
 	        sunsetStartAngle = computeSunAngle(sc.calculate(time_now, loc, SunCalc.SUNSET));
 	        sunsetEndAngle = computeSunAngle(sc.calculate(time_now, loc, SunCalc.DUSK));
+
+            if (((sunriseStartAngle < sunsetStartAngle) && (sunriseStartAngle > sunsetEndAngle)) ||
+                    ((sunriseEndAngle < sunsetStartAngle) && (sunriseEndAngle > sunsetEndAngle)) ||
+                    ((sunsetStartAngle < sunriseStartAngle) && (sunsetStartAngle > sunriseEndAngle)) ||
+                    ((sunsetEndAngle < sunriseStartAngle) && (sunsetEndAngle > sunriseEndAngle))) {
+                sunArcsOffset = 13;
+            } else {
+                sunArcsOffset = 17;
+            }
         }
 	}
 
 	function computeSunAngle(time) {
         var timeInfo = Time.Gregorian.info(time, Time.FORMAT_SHORT);       
         var angle = ((timeInfo.hour % 12) * 60.0) + timeInfo.min;
-        angle = angle / (12 * 60.0) * twoPI;
+        angle = angle / (12 * 60.0) * Math.PI * 2;
         return -(angle - Math.PI/2) * 180 / Math.PI;	
 	}
 
@@ -1036,7 +957,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         dc.setPenWidth(7);
 
         //draw sunrise
-        if (sunriseColor != offSettingFlag && locationLatitude != -999) {
+        if (sunriseColor != offSettingFlag) {
 	        dc.setColor(sunriseColor, Graphics.COLOR_TRANSPARENT);
 	        if (sunriseStartAngle > sunriseEndAngle) {
 				dc.drawArc(screenRadius, screenRadius, screenRadius - 17, Graphics.ARC_CLOCKWISE, sunriseStartAngle, sunriseEndAngle);
@@ -1046,12 +967,12 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 		}
 
         //draw sunset
-        if (sunsetColor != offSettingFlag && locationLatitude != -999) {
+        if (sunsetColor != offSettingFlag) {
 	        dc.setColor(sunsetColor, Graphics.COLOR_TRANSPARENT);
 	        if (sunsetStartAngle > sunsetEndAngle) {
-				dc.drawArc(screenRadius, screenRadius, screenRadius - 13, Graphics.ARC_CLOCKWISE, sunsetStartAngle, sunsetEndAngle);
+				dc.drawArc(screenRadius, screenRadius, screenRadius - sunArcsOffset, Graphics.ARC_CLOCKWISE, sunsetStartAngle, sunsetEndAngle);
 			} else {
-				dc.drawArc(screenRadius, screenRadius, screenRadius - 13, Graphics.ARC_COUNTER_CLOCKWISE, sunsetStartAngle, sunsetEndAngle);
+				dc.drawArc(screenRadius, screenRadius, screenRadius - sunArcsOffset, Graphics.ARC_COUNTER_CLOCKWISE, sunsetStartAngle, sunsetEndAngle);
 			}
 		}
 	}

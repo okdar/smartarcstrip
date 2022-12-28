@@ -890,6 +890,11 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
         item = iterator.next();
         counter++;
+        var timestamp = Toybox.Time.Gregorian.info(item.when, Time.FORMAT_SHORT);
+        if (times > 1 && timestamp.min % times == 1) {
+            //prevent "jumping" graph - in one minute are shown even samples, in another odd samples and so on
+            counter--;            
+        }
         while (item != null) {
             if (times == 1 && counter % skipPossition == 0) {
                 //skip each 'skipPosition' position sample to display only 165 samples because of screen size
@@ -897,9 +902,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 counter++;
                 continue;
             }
-            // timestamp = Toybox.Time.Gregorian.info(item.when, Time.FORMAT_SHORT);
-            if (times > 1) {
-                // if (timestamp.min % 24 == 0) {
+            if (times > 1) {                
                 if (counter % skipPossition == 1) {
                     //skip each 'skipPosition' positon sample to display only 165 samples because of screen size
                     item = iterator.next();

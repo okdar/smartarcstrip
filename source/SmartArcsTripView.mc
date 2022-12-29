@@ -889,13 +889,6 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         }
         var skipPossition = (numberOfSamples / rest) * times;
 
-// System.println(numberOfSamples);
-// System.println(times);
-// System.println(rest);
-// System.println(smp);
-// System.println(skipPossition);
-// System.println("");
-
         item = iterator.next();
         counter++;
         var timestamp = Toybox.Time.Gregorian.info(item.when, Time.FORMAT_SHORT);

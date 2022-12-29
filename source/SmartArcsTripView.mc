@@ -806,9 +806,9 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         var leftX = 37;
         var topY;
         if (graphPosition == 1) {
-            topY = 68 * screenResolutionRatio;
+            topY = 68;
         } else {
-            topY = 137 * screenResolutionRatio;
+            topY = 137;
         }
 
         minVal = Math.floor(minVal / divider);
@@ -833,24 +833,24 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
         //draw min and max values
         dc.setColor(graphLegendColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(leftX + 8, topY - 17, Graphics.FONT_XTINY, maxValStr, Graphics.TEXT_JUSTIFY_LEFT);
-        dc.drawText(leftX + 8, topY + 41 - 12, Graphics.FONT_XTINY, minValStr, Graphics.TEXT_JUSTIFY_LEFT);
+        dc.drawText((leftX + 8) * screenResolutionRatio, (topY - 17) * screenResolutionRatio, Graphics.FONT_XTINY, maxValStr, Graphics.TEXT_JUSTIFY_LEFT);
+        dc.drawText((leftX + 8) * screenResolutionRatio, (topY + 41 - 12) * screenResolutionRatio, Graphics.FONT_XTINY, minValStr, Graphics.TEXT_JUSTIFY_LEFT);
         //draw graph borders
         if (graphBordersColor != offSettingFlag) {
             var maxX = leftX + (dc.getTextDimensions(maxValStr, Graphics.FONT_XTINY))[0] + 5;
             var minX = leftX + (dc.getTextDimensions(minValStr, Graphics.FONT_XTINY))[0] + 5;
             dc.setColor(graphBordersColor, Graphics.COLOR_TRANSPARENT);
             dc.setPenWidth(1);
-            dc.drawLine(leftX + 1, topY, leftX + 6, topY);
-            dc.drawLine(leftX + 1, topY + 35, leftX + 6, topY + 35);
-            dc.drawLine(maxX + 5, topY, screenWidth - leftX + 1, topY);
-            dc.drawLine(minX + 5, topY + 35, screenWidth - leftX + 1, topY + 35);
+            drawLineForGraph(dc, leftX + 1, topY, leftX + 6, topY);
+            drawLineForGraph(dc, leftX + 1, topY + 35, leftX + 6, topY + 35);
+            drawLineForGraph(dc, maxX + 5, topY, 240 - leftX + 1, topY);
+            drawLineForGraph(dc, minX + 5, topY + 35, 240 - leftX + 1, topY + 35);
 
             var x;
             for (var i = 0; i <= 6; i++) {
-                x = screenWidth - leftX - (i * 27.5);
-                dc.drawLine(x, topY, x, topY + 5 + 1);
-                dc.drawLine(x, topY + 30, x, topY + 35);
+                x = 240 - leftX - (i * 27.5);
+                drawLineForGraph(dc, x, topY, x, topY + 5 + 1);
+                drawLineForGraph(dc, x, topY + 30, x, topY + 35);
             }
         }
 
@@ -859,7 +859,9 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         var counter = 1; //used only for 180 samples history
         var value = null;
         var valueStr = "";
-        var x1 = screenWidth - leftX;
+        var x1 = (screenWidth - (leftX * screenResolutionRatio)).toNumber();
+        System.println(screenWidth);
+        System.println(x1);
         var y1, x2, y2;
         dc.setColor(graphLineColor, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(graphLineWidth);
@@ -873,18 +875,19 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                     valueStr = convertC_F(value);
                 }
                 y1 = (topY + 35 + 1) - ((value / divider) - minVal) / range * 35;
-                dc.drawPoint(x1, y1);
+                dc.drawPoint(x1, y1 * screenResolutionRatio);
             }
         } else {
             //no samples
             return;
         }
 
-        var times = 0; //how many times is number is samples bigger than 165
+        var times = 0; //how many times is number of samples bigger than 165
         var rest = numberOfSamples;
-        while (rest > 165) {
+        var smp = ((screenWidth - (2 * leftX)) * screenResolutionRatio).toNumber();
+        while (rest > smp) {
             times++;
-            rest -= 165;
+            rest -= smp;
         }
         var skipPossition = (numberOfSamples / rest) * times;
 
@@ -892,7 +895,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         counter++;
         var timestamp = Toybox.Time.Gregorian.info(item.when, Time.FORMAT_SHORT);
         if (times > 1 && timestamp.min % times == 1) {
-            //prevent "jumping" graph - in one minute are shown even samples, in another odd samples and so on
+            //prevent "jumping" graph (in one minute are shown even samples, in another odd samples and so on)
             counter--;            
         }
         while (item != null) {
@@ -922,9 +925,9 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             if (value != null) {
                 y2 = (topY + 35 + 1) - ((value / divider) - minVal) / range * 35;
                 if (y1 != null) {
-                    dc.drawLine(x2, y2, x1, y1);
+                    dc.drawLine(x2, y2 * screenResolutionRatio, x1, y1 * screenResolutionRatio);
                 } else {
-                    dc.drawPoint(x2, y2);
+                    dc.drawPoint(x2, y2 * screenResolutionRatio);
                 }
                 y1 = y2;
             } else {
@@ -939,8 +942,12 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         //draw latest value on top of graph
         if (showLatestValue) {
             dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(leftX + 8, topY + 6, Graphics.FONT_XTINY, (valueStr / divider).format("%." + decimalCount + "f"), Graphics.TEXT_JUSTIFY_LEFT);
+            dc.drawText((leftX + 8) * screenResolutionRatio, (topY + 6) * screenResolutionRatio, Graphics.FONT_XTINY, (valueStr / divider).format("%." + decimalCount + "f"), Graphics.TEXT_JUSTIFY_LEFT);
         }
+    }
+
+    function drawLineForGraph(dc, x1, y1, x2, y2) {
+        dc.drawLine(x1 * screenResolutionRatio, y1 * screenResolutionRatio, x2 * screenResolutionRatio, y2 * screenResolutionRatio);
     }
 
     function countSamples(iterator) {

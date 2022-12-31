@@ -39,6 +39,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var hasPressureHistory = false;
     var hasHeartRateHistory = false;
     var hasTemperatureHistory = false;
+    var elevationNumberOfSamples = 0;
+    var pressureNumberOfSamples = 0;
+    var heartRateNumberOfSamples = 0;
+    var temperatureNumberOfSamples = 0;
     var curClip;
     var fullScreenRefresh;
     var offscreenBuffer;
@@ -277,10 +281,16 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 iter = null;
             }
             if (upperGraph == 1) {
-                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 1, 0, 1.0, 5, true, upperGraph);
+                if (elevationNumberOfSamples == 0) {
+                    elevationNumberOfSamples = countSamples(SensorHistory.getElevationHistory({}));
+                }
+                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 1, 0, 1.0, 5, true, upperGraph, elevationNumberOfSamples);
             }
             if (bottomGraph == 1) {
-                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 2, 0, 1.0, 5, true, bottomGraph);
+                if (elevationNumberOfSamples == 0) {
+                    elevationNumberOfSamples = countSamples(SensorHistory.getElevationHistory({}));
+                }
+                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 2, 0, 1.0, 5, true, bottomGraph, elevationNumberOfSamples);
             }
         }
 
@@ -306,19 +316,31 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 iter = null;
             }
             if (upperGraph == 2) {
-                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 1, 1, 100.0, 2, true, upperGraph);
+                if (pressureNumberOfSamples == 0) {
+                    pressureNumberOfSamples = countSamples(SensorHistory.getPressureHistory({}));
+                }
+                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 1, 1, 100.0, 2, true, upperGraph, pressureNumberOfSamples);
             }
             if (bottomGraph == 2) {
-                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 2, 1, 100.0, 2, true, bottomGraph);
+                if (pressureNumberOfSamples == 0) {
+                    pressureNumberOfSamples = countSamples(SensorHistory.getPressureHistory({}));
+                }
+                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 2, 1, 100.0, 2, true, bottomGraph, pressureNumberOfSamples);
             }
         }
 
         if (hasHeartRateHistory) {
             if (upperGraph == 3) {
-                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 1, 0, 1.0, 5, false,upperGraph);
+                if (heartRateNumberOfSamples == 0) {
+                    heartRateNumberOfSamples = countSamples(SensorHistory.getHeartRateHistory({}));
+                }
+                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 1, 0, 1.0, 5, false,upperGraph, heartRateNumberOfSamples);
             }
             if (bottomGraph == 3) {
-                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 2, 0, 1.0, 5, false, bottomGraph);
+                if (heartRateNumberOfSamples == 0) {
+                    heartRateNumberOfSamples = countSamples(SensorHistory.getHeartRateHistory({}));
+                }
+                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 2, 0, 1.0, 5, false, bottomGraph, heartRateNumberOfSamples);
             }
         }
 
@@ -347,10 +369,16 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 iter = null;
             }
             if (upperGraph == 4) {
-                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 1, 1, 1.0, 5, true, upperGraph);
+                if (temperatureNumberOfSamples == 0) {
+                    temperatureNumberOfSamples = countSamples(SensorHistory.getTemperatureHistory({}));
+                }
+                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 1, 1, 1.0, 5, true, upperGraph, temperatureNumberOfSamples);
             }
             if (bottomGraph == 4) {
-                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 2, 1, 1.0, 5, true, bottomGraph);
+                if (temperatureNumberOfSamples == 0) {
+                    temperatureNumberOfSamples = countSamples(SensorHistory.getTemperatureHistory({}));
+                }
+                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 2, 1, 1.0, 5, true, bottomGraph, temperatureNumberOfSamples);
             }
         }
 
@@ -557,7 +585,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 }
             } else if ((i % 5) == 0) { //5-minute tick
                 if (ticks5MinWidth > 0) {
-                    ticks[i] = computeTickRectangle(angle, 20, ticks5MinWidth);
+                    ticks[i] = computeTickRectangle(angle, 17, ticks5MinWidth);
                 }
             } else if (ticks1MinWidth > 0) { //1-minute tick
                 ticks[i] = computeTickRectangle(angle, 10, ticks1MinWidth);
@@ -768,18 +796,23 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         dc.drawText(screenWidth - 30, screenRadius, font, hrText, Graphics.TEXT_JUSTIFY_RIGHT|Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    function drawGraph(dc, iterator, graphPosition, decimalCount, divider, minimalRange, showLatestValue, graphType) {
-        var leftX = 45;
-        var topY;
-        var currentValue;
-        if (graphPosition == 1) {
-            topY = 65 * screenResolutionRatio;
-        } else {
-            topY = 140 * screenResolutionRatio;
+    function drawGraph(dc, iterator, graphPosition, decimalCount, divider, minimalRange, showLatestValue, graphType, numberOfSamples) {
+        var minVal = iterator.getMin();
+        var maxVal = iterator.getMax();
+        if (minVal == null || maxVal == null || numberOfSamples == 0) {
+            return;
         }
-        var stringFormater =  "%." + decimalCount + "f";
-        var minVal = Math.floor(iterator.getMin() / divider);
-        var maxVal = Math.ceil(iterator.getMax() / divider);
+
+        var leftX = 37;
+        var topY;
+        if (graphPosition == 1) {
+            topY = 68;
+        } else {
+            topY = 137;
+        }
+
+        minVal = Math.floor(minVal / divider);
+        maxVal = Math.ceil(maxVal / divider);
         var range = maxVal - minVal;
         if (range < minimalRange) {
             var avg = (minVal + maxVal) / 2.0;
@@ -798,65 +831,130 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             maxValStr = convertC_F(maxVal).format("%.0f");
         }
 
-        var item = iterator.next();
-        if (item != null) {
-            var value = item.data;
-            currentValue = value;
-            if (value != null) {
-                var valueStr = value.format(stringFormater);
-                if (graphType == 1 && deviceSettings.elevationUnits == System.UNIT_STATUTE) {
-                    valueStr = convertM_Ft(value).format(stringFormater);
-                } else if (graphType == 4 && deviceSettings.temperatureUnits == System.UNIT_STATUTE) {
-                    valueStr = convertC_F(value).format(stringFormater);
-                }
-                //draw latest value
-                if (showLatestValue) {
-                	dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
-                	dc.drawText(leftX, topY + 6, Graphics.FONT_XTINY, (value / divider).format(stringFormater), Graphics.TEXT_JUSTIFY_LEFT);
-                }
-                //draw min and max values
-                dc.setColor(graphLegendColor, Graphics.COLOR_TRANSPARENT);
-                dc.drawText(leftX, topY - 12, Graphics.FONT_XTINY, maxValStr, Graphics.TEXT_JUSTIFY_LEFT);
-                dc.drawText(leftX, topY + 41 - 18, Graphics.FONT_XTINY, minValStr, Graphics.TEXT_JUSTIFY_LEFT);
-                //draw min and max lines
-                var maxX = leftX + (dc.getTextDimensions(maxValStr, Graphics.FONT_XTINY))[0] + 5;
-                var minX = leftX + (dc.getTextDimensions(minValStr, Graphics.FONT_XTINY))[0] + 5;
-                if (graphBordersColor != offSettingFlag) {
-                    dc.setColor(graphBordersColor, Graphics.COLOR_TRANSPARENT);
-                    dc.setPenWidth(1);
-                    dc.drawLine(maxX, topY, screenWidth - leftX, topY);
-                    dc.drawLine(minX, topY + 35, screenWidth - leftX, topY + 35);
+        //draw min and max values
+        dc.setColor(graphLegendColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(scale(leftX + 8), scale(topY - 17), Graphics.FONT_XTINY, maxValStr, Graphics.TEXT_JUSTIFY_LEFT);
+        dc.drawText(scale(leftX + 8), scale(topY + 41 - 12), Graphics.FONT_XTINY, minValStr, Graphics.TEXT_JUSTIFY_LEFT);
+        //draw graph borders
+        if (graphBordersColor != offSettingFlag) {
+            var maxX = leftX + (dc.getTextDimensions(maxValStr, Graphics.FONT_XTINY))[0] + 5;
+            var minX = leftX + (dc.getTextDimensions(minValStr, Graphics.FONT_XTINY))[0] + 5;
+            dc.setColor(graphBordersColor, Graphics.COLOR_TRANSPARENT);
+            dc.setPenWidth(1);
+            dc.drawLine(scale(leftX + 1), scale(topY), scale(leftX + 6), scale(topY));
+            dc.drawLine(scale(leftX + 1), scale(topY + 35), scale(leftX + 6), scale(topY + 35));
+            dc.drawLine(scale(maxX + 5), scale(topY), scale(240 - leftX + 1), scale(topY));
+            dc.drawLine(scale(minX + 5), scale(topY + 35), scale(240 - leftX + 1), scale(topY + 35));
 
-                }
-                dc.setColor(graphLineColor, Graphics.COLOR_TRANSPARENT);
-                dc.setPenWidth(graphLineWidth);
-                var x1 = screenWidth - leftX;
-                var y1 = (topY + 35) - ((value / divider) - minVal) / range * 35;
-                var x2;
-                var y2;
-                item = iterator.next();
-                if (item != null) {
-                    value = item.data;
-                    while (value != null) {
-                        x2 = x1 - 1;
-                        y2 = (topY + 35) - ((value / divider) - minVal) / range * 35;
-                        dc.drawLine(x1, y1, x2, y2);
-                        x1 = x2;
-                        y1 = y2;
-                        if (x1 == maxX || x1 == minX) {
-                            break;
-                        }
-                        item = iterator.next();
-                        if (item == null) {
-                            break;
-                        }
-                        value = item.data;
-                    }
-                } else {
-                    return;
-                }
+            var x;
+            for (var i = 0; i <= 6; i++) {
+                x = 240 - leftX - (i * 27.5);
+                dc.drawLine(scale(x), scale(topY), scale(x), scale(topY + 5 + 1));
+                dc.drawLine(scale(x), scale(topY + 30), scale(x), scale(topY + 35));
             }
         }
+
+        //get latest sample
+        var item = iterator.next();
+        var counter = 1; //used only for 180 samples history
+        var value = null;
+        var valueStr = "";
+        var x1 = (screenWidth - scale(leftX)).toNumber();
+        var y1, x2, y2;
+        dc.setColor(graphLineColor, Graphics.COLOR_TRANSPARENT);
+        dc.setPenWidth(graphLineWidth);
+        if (item != null) {
+            value = item.data;            
+            if (value != null) {
+                valueStr = value;
+                if (graphType == 1 && deviceSettings.elevationUnits == System.UNIT_STATUTE) {
+                    valueStr = convertM_Ft(value);
+                } else if (graphType == 4 && deviceSettings.temperatureUnits == System.UNIT_STATUTE) {
+                    valueStr = convertC_F(value);
+                }
+                y1 = (topY + 35 + 1) - ((value / divider) - minVal) / range * 35;
+                dc.drawPoint(x1, scale(y1));
+            }
+        } else {
+            //no samples
+            return;
+        }
+
+        var times = 0; //how many times is number of samples bigger than 165
+        var rest = numberOfSamples;
+        var smp = (screenWidth - scale(2 * leftX)).toNumber();
+        while (rest > smp) {
+            times++;
+            rest -= smp;
+        }
+        var skipPossition = (numberOfSamples / rest) * times;
+
+        item = iterator.next();
+        counter++;
+        var timestamp = Toybox.Time.Gregorian.info(item.when, Time.FORMAT_SHORT);
+        if (times > 1 && timestamp.min % times == 1) {
+            //prevent "jumping" graph (in one minute are shown even samples, in another odd samples and so on)
+            counter--;            
+        }
+        while (item != null) {
+            if (times == 1 && counter % skipPossition == 0) {
+                //skip each 'skipPosition' position sample to display only 165 samples because of screen size
+                item = iterator.next();
+                counter++;
+                continue;
+            }
+            if (times > 1) {                
+                if (counter % skipPossition == 1) {
+                    //skip each 'skipPosition' positon sample to display only 165 samples because of screen size
+                    item = iterator.next();
+                    counter++;
+                    continue;
+                }
+                if (counter % times == 0) {
+                    //many samples, skip every 'times' position sample
+                    item = iterator.next();
+                    counter++;
+                    continue;
+                }
+            }
+
+            value = item.data;
+            x2 = x1 - 1;
+            if (value != null) {
+                y2 = (topY + 35 + 1) - ((value / divider) - minVal) / range * 35;
+                if (y1 != null) {
+                    dc.drawLine(x2, scale(y2), x1, scale(y1));
+                } else {
+                    dc.drawPoint(x2, scale(y2));
+                }
+                y1 = y2;
+            } else {
+                y1 = null;
+            }
+            x1 = x2;
+
+            item = iterator.next();
+            counter++;
+        }
+
+        //draw latest value on top of graph
+        if (showLatestValue) {
+            dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(scale(leftX + 8), scale(topY + 6), Graphics.FONT_XTINY, (valueStr / divider).format("%." + decimalCount + "f"), Graphics.TEXT_JUSTIFY_LEFT);
+        }
+    }
+
+    function scale(x) {
+        return x * screenResolutionRatio;
+    }
+
+    function countSamples(iterator) {
+        var count = 0;
+        while (iterator.next() != null) {
+            count++;
+        }
+
+        return count;
     }
 
     function convertKm_Mi(value) {

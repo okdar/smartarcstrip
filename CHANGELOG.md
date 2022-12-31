@@ -1,3 +1,6 @@
+# 1.5.0 (December 31, 2022)
+* reimplemented graphs to show all history data
+
 # 1.4.1 (October 22, 2022)
 * code optimization
 

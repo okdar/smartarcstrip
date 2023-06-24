@@ -1,3 +1,6 @@
+# 1.5.1 (June 24, 2023)
+* twilights indicator redesign
+
 # 1.5.0 (December 31, 2022)
 * reimplemented graphs to show all history data
 

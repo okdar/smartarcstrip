@@ -43,11 +43,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var pressureNumberOfSamples = 0;
     var heartRateNumberOfSamples = 0;
     var temperatureNumberOfSamples = 0;
-    var curClip;
     var fullScreenRefresh;
     var offscreenBuffer;
     var offSettingFlag = -999;
-    var font = Graphics.FONT_TINY;
+    var font;
     var lastMeasuredHR;
     var deviceSettings;
     var powerSaverDrawn = false;
@@ -112,6 +111,27 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var sunriseColor;
     var sunsetColor;
 
+    enum { // SF = SensorField
+        SF_NO_DATA,
+        SF_DISTANCE,
+        SF_ELEVATION,
+        SF_PRESSURE,
+        SF_TEMPERATURE
+    }
+
+    enum { // SG = SensorGraph
+        SG_NO_GRAPH,
+        SG_ELEVATION,
+        SG_PRESSURE,
+        SG_HR,
+        SG_TEMPERATURE
+    }
+
+    enum { // graph position
+        UPPER_GRAPH = 1,
+        BOTTOM_GRAPH = 2
+    }
+
     function initialize() {
         WatchFace.initialize();
     }
@@ -119,10 +139,17 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     //load resources here
     function onLayout(dc) {
         //if this device supports BufferedBitmap, allocate the buffers we use for drawing
-        if (Toybox.Graphics has :BufferedBitmap) {
+        if (Toybox.Graphics has :createBufferedBitmap) {
+            // get() used to return resource as Graphics.BufferedBitmap
             //Allocate a full screen size buffer to draw the background image of the watchface.
-            //This is used to facilitate blanking the second hand during partial updates of the display
-            offscreenBuffer = new Graphics.BufferedBitmap({
+            offscreenBuffer = Toybox.Graphics.createBufferedBitmap({
+                :width => dc.getWidth(),
+                :height => dc.getHeight()
+            }).get();
+        } else if (Toybox.Graphics has :BufferedBitmap) {
+            //If this device supports BufferedBitmap, allocate the buffers we use for drawing
+            //Allocate a full screen size buffer to draw the background image of the watchface.
+            offscreenBuffer = new Toybox.Graphics.BufferedBitmap({
                 :width => dc.getWidth(),
                 :height => dc.getHeight()
             });
@@ -133,26 +160,16 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         partialUpdatesAllowed = (Toybox.WatchUi.WatchFace has :onPartialUpdate);
 
         if (Toybox has :SensorHistory) {
-            if (Toybox.SensorHistory has :getElevationHistory) {
-                hasElevationHistory = true;
-            }
-            if (Toybox.SensorHistory has :getPressureHistory) {
-                hasPressureHistory = true;
-            }
-            if (Toybox.SensorHistory has :getHeartRateHistory) {
-                hasHeartRateHistory = true;
-            }
-            if (Toybox.SensorHistory has :getTemperatureHistory) {
-                hasTemperatureHistory = true;
-            }
+            hasElevationHistory = Toybox.SensorHistory has :getElevationHistory;
+            hasPressureHistory = Toybox.SensorHistory has :getPressureHistory;
+            hasHeartRateHistory = Toybox.SensorHistory has :getHeartRateHistory;
+            hasTemperatureHistory = Toybox.SensorHistory has :getTemperatureHistory;
         }
 
         loadUserSettings();
         computeConstants(dc);
 		computeSunConstants();
         fullScreenRefresh = true;
-
-        curClip = null;
     }
 
     //called when this View is brought to the foreground. Restore
@@ -187,11 +204,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
         var targetDc = null;
         if (offscreenBuffer != null) {
-            dc.clearClip();
-            curClip = null;
             //if we have an offscreen buffer that we are using to draw the background,
             //set the draw context of that buffer as our target.
             targetDc = offscreenBuffer.getDc();
+            dc.clearClip();
         } else {
             targetDc = dc;
         }
@@ -257,145 +273,58 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         }
 
         if (hasElevationHistory) {
-            if (upperField == 2 || bottomField == 2) {
-                var iter = SensorHistory.getElevationHistory({});
-                if (iter != null) {
-                    var item = iter.next();
-                    var value = null;
-                    if (item != null) {
-                        value = item.data;
-                    }
-                    if (value != null && graphCurrentValueColor != offSettingFlag) {
-                        targetDc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
-                        if (deviceSettings.elevationUnits == System.UNIT_STATUTE) {
-                            value = convertM_Ft(value);
-                        }
-                        if (upperField == 2) {
-                            targetDc.drawText(screenRadius, 30, Graphics.FONT_TINY, value.format("%.0f"), Graphics.TEXT_JUSTIFY_CENTER);
-                        }
-                        if (bottomField == 2) {
-                            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 30, Graphics.FONT_TINY, value.format("%.0f"), Graphics.TEXT_JUSTIFY_CENTER);
-                        }
-                    }
-                }
-                iter = null;
+            drawSensorValueText(targetDc, SensorHistory.getElevationHistory({}), SF_ELEVATION, 1.0, "%.0f");
+            if (upperGraph == SG_ELEVATION) {
+                drawGraph(targetDc, SensorHistory.getElevationHistory({}), UPPER_GRAPH, 0, 1.0, 5, true, SG_ELEVATION, elevationNumberOfSamples);
             }
-            if (upperGraph == 1) {
-                if (elevationNumberOfSamples == 0) {
-                    elevationNumberOfSamples = countSamples(SensorHistory.getElevationHistory({}));
-                }
-                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 1, 0, 1.0, 5, true, upperGraph, elevationNumberOfSamples);
-            }
-            if (bottomGraph == 1) {
-                if (elevationNumberOfSamples == 0) {
-                    elevationNumberOfSamples = countSamples(SensorHistory.getElevationHistory({}));
-                }
-                drawGraph(targetDc, SensorHistory.getElevationHistory({}), 2, 0, 1.0, 5, true, bottomGraph, elevationNumberOfSamples);
+            if (bottomGraph == SG_ELEVATION) {
+                drawGraph(targetDc, SensorHistory.getElevationHistory({}), BOTTOM_GRAPH, 0, 1.0, 5, true, SG_ELEVATION, elevationNumberOfSamples);
             }
         }
 
         if (hasPressureHistory) {
-            if (upperField == 3 || bottomField == 3) {
-                var iter = SensorHistory.getPressureHistory({});
-                if (iter != null) {
-                    var item = iter.next();
-                    var value = null;
-                    if (item != null) {
-                        value = item.data;
-                    }
-                    if (value != null && graphCurrentValueColor != offSettingFlag) {
-                        targetDc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
-                        if (upperField == 3) {
-                            targetDc.drawText(screenRadius, 30, Graphics.FONT_TINY, (value / 100.0).format("%.1f"), Graphics.TEXT_JUSTIFY_CENTER);
-                        }
-                        if (bottomField == 3) {
-                            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 30, Graphics.FONT_TINY, (value / 100.0).format("%.1f"), Graphics.TEXT_JUSTIFY_CENTER);
-                        }
-                    }
-                }
-                iter = null;
+            drawSensorValueText(targetDc, SensorHistory.getPressureHistory({}), SF_PRESSURE, 100.0, "%.1f");
+            if (upperGraph == SG_PRESSURE) {
+                drawGraph(targetDc, SensorHistory.getPressureHistory({}), UPPER_GRAPH, 1, 100.0, 2, true, SG_PRESSURE, pressureNumberOfSamples);
             }
-            if (upperGraph == 2) {
-                if (pressureNumberOfSamples == 0) {
-                    pressureNumberOfSamples = countSamples(SensorHistory.getPressureHistory({}));
-                }
-                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 1, 1, 100.0, 2, true, upperGraph, pressureNumberOfSamples);
-            }
-            if (bottomGraph == 2) {
-                if (pressureNumberOfSamples == 0) {
-                    pressureNumberOfSamples = countSamples(SensorHistory.getPressureHistory({}));
-                }
-                drawGraph(targetDc, SensorHistory.getPressureHistory({}), 2, 1, 100.0, 2, true, bottomGraph, pressureNumberOfSamples);
+            if (bottomGraph == SG_PRESSURE) {
+                drawGraph(targetDc, SensorHistory.getPressureHistory({}), BOTTOM_GRAPH, 1, 100.0, 2, true, SG_PRESSURE, pressureNumberOfSamples);
             }
         }
 
         if (hasHeartRateHistory) {
-            if (upperGraph == 3) {
-                if (heartRateNumberOfSamples == 0) {
-                    heartRateNumberOfSamples = countSamples(SensorHistory.getHeartRateHistory({}));
-                }
-                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 1, 0, 1.0, 5, false,upperGraph, heartRateNumberOfSamples);
+            if (upperGraph == SG_HR) {
+                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), UPPER_GRAPH, 0, 1.0, 5, false, SG_HR, heartRateNumberOfSamples);
             }
-            if (bottomGraph == 3) {
-                if (heartRateNumberOfSamples == 0) {
-                    heartRateNumberOfSamples = countSamples(SensorHistory.getHeartRateHistory({}));
-                }
-                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), 2, 0, 1.0, 5, false, bottomGraph, heartRateNumberOfSamples);
+            if (bottomGraph == SG_HR) {
+                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), BOTTOM_GRAPH, 0, 1.0, 5, false, SG_HR, heartRateNumberOfSamples);
             }
         }
 
         if (hasTemperatureHistory) {
-            if (upperField == 4 || bottomField == 4) {
-                var iter = SensorHistory.getTemperatureHistory({});
-                if (iter != null) {
-                    var item = iter.next();
-                    var value = null;
-                    if (item != null) {
-                        value = item.data;
-                    }
-                    if (value != null && graphCurrentValueColor != offSettingFlag) {
-                        targetDc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
-                        if (deviceSettings.temperatureUnits == System.UNIT_STATUTE) {
-                            value = convertC_F(value);
-                        }
-                        if (upperField == 4) {
-                            targetDc.drawText(screenRadius, 30, Graphics.FONT_TINY, value.format("%.1f") + StringUtil.utf8ArrayToString([0xC2,0xB0]), Graphics.TEXT_JUSTIFY_CENTER);
-                        }
-                        if (bottomField == 4) {
-                            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 30, Graphics.FONT_TINY, value.format("%.1f") + StringUtil.utf8ArrayToString([0xC2,0xB0]), Graphics.TEXT_JUSTIFY_CENTER);
-                        }
-                    }
-                }
-                iter = null;
+            drawSensorValueText(targetDc, SensorHistory.getTemperatureHistory({}), SF_TEMPERATURE, 1.0, "%.1f");
+            if (upperGraph == SG_TEMPERATURE) {
+                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), UPPER_GRAPH, 1, 1.0, 5, true, SG_TEMPERATURE, temperatureNumberOfSamples);
             }
-            if (upperGraph == 4) {
-                if (temperatureNumberOfSamples == 0) {
-                    temperatureNumberOfSamples = countSamples(SensorHistory.getTemperatureHistory({}));
-                }
-                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 1, 1, 1.0, 5, true, upperGraph, temperatureNumberOfSamples);
-            }
-            if (bottomGraph == 4) {
-                if (temperatureNumberOfSamples == 0) {
-                    temperatureNumberOfSamples = countSamples(SensorHistory.getTemperatureHistory({}));
-                }
-                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), 2, 1, 1.0, 5, true, bottomGraph, temperatureNumberOfSamples);
+            if (bottomGraph == SG_TEMPERATURE) {
+                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), BOTTOM_GRAPH, 1, 1.0, 5, true, SG_TEMPERATURE, temperatureNumberOfSamples);
             }
         }
 
         targetDc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
-        if (upperField == 1) {
+        if (upperField == SF_DISTANCE) {
             var distance = ActivityMonitor.getInfo().distance;
             if (deviceSettings.distanceUnits == System.UNIT_STATUTE) {
                 distance = convertKm_Mi(distance);
             }
-            targetDc.drawText(screenRadius, 30, Graphics.FONT_TINY, (distance/100000.0).format("%.2f"), Graphics.TEXT_JUSTIFY_CENTER);
+            targetDc.drawText(screenRadius, recalculateCoordinate(30), font, (distance/100000.0).format("%.2f"), Graphics.TEXT_JUSTIFY_CENTER);
         }
-        if (bottomField == 1) {
+        if (bottomField == SF_DISTANCE) {
             var distance = ActivityMonitor.getInfo().distance;
             if (deviceSettings.distanceUnits == System.UNIT_STATUTE) {
                 distance = convertKm_Mi(distance);
             }
-            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - 30, Graphics.FONT_TINY, (distance/100000.0).format("%.2f"), Graphics.TEXT_JUSTIFY_CENTER);
+            targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - recalculateCoordinate(30), font, (distance/100000.0).format("%.2f"), Graphics.TEXT_JUSTIFY_CENTER);
         }
 
         if (handsOnTop) {
@@ -486,7 +415,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         bottomGraph = app.getProperty("bottomGraph");
         bottomField = app.getProperty("bottomField");
         graphCurrentValueColor = app.getProperty("graphCurrentValueColor");
-        if (upperGraph > 0 || bottomGraph > 0) {
+        if (upperGraph > SG_NO_GRAPH || bottomGraph > SG_NO_GRAPH) {
             graphBordersColor = app.getProperty("graphBordersColor");
             graphLegendColor = app.getProperty("graphLegendColor");
             graphLineWidth = app.getProperty("graphLineWidth");
@@ -498,6 +427,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         }
 
         var power = app.getProperty("powerSaver");
+		powerSaverRefreshInterval = app.getProperty("powerSaverRefreshInterval");
+		powerSaverIconColor = app.getProperty("powerSaverIconColor");
         if (power == 1) {
         	powerSaver = false;
     	} else {
@@ -510,6 +441,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             } else {
                 powerSaverBeginning = "00:00";
                 powerSaverEnd = "23:59";
+                powerSaverRefreshInterval = -999;
             }
             startPowerSaverMin = parsePowerSaverTime(powerSaverBeginning);
             if (startPowerSaverMin == -1) {
@@ -521,8 +453,6 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                 }
             }
         }
-		powerSaverRefreshInterval = app.getProperty("powerSaverRefreshInterval");
-		powerSaverIconColor = app.getProperty("powerSaverIconColor");
 		
 		locationLatitude = app.getProperty("locationLatitude");
 		locationLongitude = app.getProperty("locationLongitude");
@@ -536,15 +466,23 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         screenWidth = dc.getWidth();
         screenRadius = screenWidth / 2;
 
-        //computes hand lenght for watches with different screen resolution than 240x240
-        screenResolutionRatio = screenWidth / 240.0;
-        hourHandLength = (60 * screenResolutionRatio).toNumber();
-        minuteHandLength = (90 * screenResolutionRatio).toNumber();
-        handsTailLength = (15 * screenResolutionRatio).toNumber();
+        //TINY font for screen resolution 240 and lower, SMALL for higher resolution
+        if (screenRadius <= 120) {
+            font = Graphics.FONT_TINY;
+        } else {
+            font = Graphics.FONT_SMALL;
+        }
 
-        powerSaverIconRatio = screenResolutionRatio; //big icon
-        if (powerSaverRefreshInterval != offSettingFlag) {
-            powerSaverIconRatio = 0.6 * screenResolutionRatio; //small icon
+        //computes hand lenght for watches with different screen resolution than 260x260
+        screenResolutionRatio = screenRadius / 130.0; //130.0 = half of vivoactive4 resolution; used for coordinates recalculation
+        hourHandLength = recalculateCoordinate(60);
+        minuteHandLength = recalculateCoordinate(90);
+        handsTailLength = recalculateCoordinate(15);
+        
+        if (powerSaverRefreshInterval == offSettingFlag) {
+            powerSaverIconRatio = 1.0; //big icon
+        } else {
+            powerSaverIconRatio = 0.6; //small icon
         }
 
         if (!((ticksColor == offSettingFlag) ||
@@ -553,8 +491,20 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             computeTicks();
         }
 
-        hrTextDimension = dc.getTextDimensions("888", Graphics.FONT_TINY); //to compute correct clip boundaries
+        hrTextDimension = dc.getTextDimensions("888", font); //to compute correct clip boundaries
         halfHRTextWidth = hrTextDimension[0] / 2;
+
+        getNumberOfSamples(upperGraph);
+        getNumberOfSamples(bottomGraph);
+    }
+
+    function getNumberOfSamples(graphType) {
+        switch (graphType) {
+            case SG_ELEVATION: elevationNumberOfSamples = hasElevationHistory ? countSamples(SensorHistory.getElevationHistory({})) : 0;
+            case SG_PRESSURE:  pressureNumberOfSamples = hasPressureHistory ? countSamples(SensorHistory.getPressureHistory({})) : 0;
+            case SG_HR:  heartRateNumberOfSamples = hasHeartRateHistory ? countSamples(SensorHistory.getHeartRateHistory({})) : 0;
+            case SG_TEMPERATURE:  temperatureNumberOfSamples = hasTemperatureHistory ? countSamples(SensorHistory.getTemperatureHistory({})) : 0;
+        }
     }
 
     function parsePowerSaverTime(time) {
@@ -581,14 +531,14 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             angle = i * Math.PI * 2 / 60.0;
             if ((i % 15) == 0) { //quarter tick
                 if (ticks15MinWidth > 0) {
-                    ticks[i] = computeTickRectangle(angle, 20, ticks15MinWidth);
+                    ticks[i] = computeTickRectangle(angle, recalculateCoordinate(20), ticks15MinWidth);
                 }
             } else if ((i % 5) == 0) { //5-minute tick
                 if (ticks5MinWidth > 0) {
-                    ticks[i] = computeTickRectangle(angle, 17, ticks5MinWidth);
+                    ticks[i] = computeTickRectangle(angle, recalculateCoordinate(20), ticks5MinWidth);
                 }
             } else if (ticks1MinWidth > 0) { //1-minute tick
-                ticks[i] = computeTickRectangle(angle, 10, ticks1MinWidth);
+                ticks[i] = computeTickRectangle(angle, recalculateCoordinate(10), ticks1MinWidth);
             }
         }
     }
@@ -617,9 +567,9 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     }
 
     function drawSmartArc(dc, color, arcDirection, startAngle, endAngle) {
-        dc.setPenWidth(10);
+        dc.setPenWidth(recalculateCoordinate(10));
         dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-        dc.drawArc(screenRadius, screenRadius, screenRadius - 5, arcDirection, startAngle, endAngle);
+        dc.drawArc(screenRadius, screenRadius, screenRadius - recalculateCoordinate(5), arcDirection, startAngle, endAngle);
     }
 
     function drawTicks(dc) {
@@ -661,14 +611,14 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         hourAngle = ((clockTime.hour % 12) * 60.0) + clockTime.min;
         hourAngle = hourAngle / (12 * 60.0) * Math.PI * 2;
         if (handsOutlineColor != offSettingFlag) {
-            drawHand(dc, handsOutlineColor, computeHandRectangle(hourAngle, hourHandLength + 2, handsTailLength + 2, hourHandWidth + 4));
+            drawHand(dc, handsOutlineColor, computeHandRectangle(hourAngle, hourHandLength + recalculateCoordinate(2), handsTailLength + recalculateCoordinate(2), hourHandWidth + recalculateCoordinate(4)));
         }
         drawHand(dc, handsColor, computeHandRectangle(hourAngle, hourHandLength, handsTailLength, hourHandWidth));
 
         //draw minute hand
         minAngle = (clockTime.min / 60.0) * Math.PI * 2;
         if (handsOutlineColor != offSettingFlag) {
-            drawHand(dc, handsOutlineColor, computeHandRectangle(minAngle, minuteHandLength + 2, handsTailLength + 2, minuteHandWidth + 4));
+            drawHand(dc, handsOutlineColor, computeHandRectangle(minAngle, minuteHandLength + recalculateCoordinate(2), handsTailLength + recalculateCoordinate(2), minuteHandWidth + recalculateCoordinate(4)));
         }
         drawHand(dc, handsColor, computeHandRectangle(minAngle, minuteHandLength, handsTailLength, minuteHandWidth));
 
@@ -678,7 +628,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         dc.fillCircle(screenRadius, screenRadius, bulletRadius + 1);
         dc.setPenWidth(bulletRadius);
         dc.setColor(handsColor,Graphics.COLOR_TRANSPARENT);
-        dc.drawCircle(screenRadius, screenRadius, bulletRadius + 2);
+        dc.drawCircle(screenRadius, screenRadius, bulletRadius + recalculateCoordinate(2));
     }
 
     function drawHand(dc, color, coords) {
@@ -744,7 +694,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     }
 
     //Compute a bounding box from the passed in points
-    function getBoundingBox( points ) {
+    function getBoundingBox(points) {
         var min = [9999,9999];
         var max = [0,0];
 
@@ -766,11 +716,43 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         return [min, max];
     }
 
+    function drawSensorValueText(dc, iterator, sensorType, divider, format) {
+        if (upperField == sensorType || bottomField == sensorType) {
+            if (iterator != null) {
+                var item = iterator.next();
+                var value = null;
+                if (item != null) {
+                    value = item.data;
+                }
+                if (value != null && graphCurrentValueColor != offSettingFlag) {
+                    dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
+                    if (sensorType == SF_ELEVATION && deviceSettings.elevationUnits == System.UNIT_STATUTE) {
+                        value = convertM_Ft(value);
+                    }
+                    if (sensorType == SF_TEMPERATURE && deviceSettings.temperatureUnits == System.UNIT_STATUTE) {
+                        value = convertC_F(value);
+                    }
+                    if (upperField == sensorType) {
+                        dc.drawText(screenRadius, recalculateCoordinate(30), font, (value / divider).format(format), Graphics.TEXT_JUSTIFY_CENTER);
+                    }
+                    if (bottomField == sensorType) {
+                        dc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - recalculateCoordinate(30), font, (value / divider).format(format), Graphics.TEXT_JUSTIFY_CENTER);
+                    }
+                }
+            }
+        }
+    }
+
+    //coordinates are optimized for 260x260 resolution (vivoactive4)
+    //this method recalculates coordinates for watches with different resolution
+    function recalculateCoordinate(coordinate) {
+        return (coordinate * screenResolutionRatio).toNumber();
+    }
+
     function drawHR(dc, refreshHR) {
         var hr = 0;
         var hrText;
         var activityInfo;
-        var hrTextDimension = dc.getTextDimensions("888", font); //to compute correct clip boundaries
 
         if (refreshHR) {
             activityInfo = Activity.getActivityInfo();
@@ -788,12 +770,12 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             hrText = hr.format("%i");
         }
 
-        dc.setClip(screenWidth - hrTextDimension[0] - 30, screenRadius - (hrTextDimension[1] / 2), hrTextDimension[0], hrTextDimension[1]);
+        dc.setClip(screenWidth - hrTextDimension[0] - recalculateCoordinate(30), screenRadius - (hrTextDimension[1] / 2), hrTextDimension[0], hrTextDimension[1]);
 
         dc.setColor(hrColor, Graphics.COLOR_TRANSPARENT);
         //debug rectangle
-//        dc.drawRectangle(screenWidth - hrTextDimension[0] - 30, screenRadius - (hrTextDimension[1] / 2), hrTextDimension[0], hrTextDimension[1]);
-        dc.drawText(screenWidth - 30, screenRadius, font, hrText, Graphics.TEXT_JUSTIFY_RIGHT|Graphics.TEXT_JUSTIFY_VCENTER);
+//        dc.drawRectangle(screenWidth - hrTextDimension[0] - recalculateCoordinate(30), screenRadius - (hrTextDimension[1] / 2), hrTextDimension[0], hrTextDimension[1]);
+        dc.drawText(screenWidth - recalculateCoordinate(30), screenRadius, font, hrText, Graphics.TEXT_JUSTIFY_RIGHT|Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
     function drawGraph(dc, iterator, graphPosition, decimalCount, divider, minimalRange, showLatestValue, graphType, numberOfSamples) {
@@ -803,12 +785,13 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             return;
         }
 
-        var leftX = 37;
-        var topY;
-        if (graphPosition == 1) {
-            topY = 68;
-        } else {
-            topY = 137;
+        var graphTextHeight = dc.getTextDimensions("8", Graphics.FONT_XTINY)[1]; //font height
+
+        var leftX = recalculateCoordinate(40); //40 pixels from screen border
+        var topY = recalculateCoordinate(30) + hrTextDimension[1] + graphTextHeight / 2;
+        var graphHeight = screenRadius - topY - graphTextHeight;
+        if (graphPosition != UPPER_GRAPH) {
+            topY = screenRadius + graphTextHeight;
         }
 
         minVal = Math.floor(minVal / divider);
@@ -823,34 +806,34 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
         var minValStr = minVal.format("%.0f");
         var maxValStr = maxVal.format("%.0f");
-        if (graphType == 1 && deviceSettings.elevationUnits == System.UNIT_STATUTE) {
+        if (graphType == SG_ELEVATION && deviceSettings.elevationUnits == System.UNIT_STATUTE) {
             minValStr = convertM_Ft(minVal).format("%.0f");
             maxValStr = convertM_Ft(maxVal).format("%.0f");
-        } else if (graphType == 4 && deviceSettings.temperatureUnits == System.UNIT_STATUTE) {
+        } else if (graphType == SG_PRESSURE && deviceSettings.temperatureUnits == System.UNIT_STATUTE) {
             minValStr = convertC_F(minVal).format("%.0f");
             maxValStr = convertC_F(maxVal).format("%.0f");
         }
 
         //draw min and max values
         dc.setColor(graphLegendColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(scale(leftX + 8), scale(topY - 17), Graphics.FONT_XTINY, maxValStr, Graphics.TEXT_JUSTIFY_LEFT);
-        dc.drawText(scale(leftX + 8), scale(topY + 41 - 12), Graphics.FONT_XTINY, minValStr, Graphics.TEXT_JUSTIFY_LEFT);
+        dc.drawText(leftX + recalculateCoordinate(8), topY - graphTextHeight + 3, Graphics.FONT_XTINY, maxValStr, Graphics.TEXT_JUSTIFY_LEFT);
+        dc.drawText(leftX + recalculateCoordinate(8), topY + graphHeight - 3, Graphics.FONT_XTINY, minValStr, Graphics.TEXT_JUSTIFY_LEFT);
         //draw graph borders
         if (graphBordersColor != offSettingFlag) {
             var maxX = leftX + (dc.getTextDimensions(maxValStr, Graphics.FONT_XTINY))[0] + 5;
             var minX = leftX + (dc.getTextDimensions(minValStr, Graphics.FONT_XTINY))[0] + 5;
             dc.setColor(graphBordersColor, Graphics.COLOR_TRANSPARENT);
             dc.setPenWidth(1);
-            dc.drawLine(scale(leftX + 1), scale(topY), scale(leftX + 6), scale(topY));
-            dc.drawLine(scale(leftX + 1), scale(topY + 35), scale(leftX + 6), scale(topY + 35));
-            dc.drawLine(scale(maxX + 5), scale(topY), scale(240 - leftX + 1), scale(topY));
-            dc.drawLine(scale(minX + 5), scale(topY + 35), scale(240 - leftX + 1), scale(topY + 35));
+            dc.drawLine(leftX, topY, leftX + recalculateCoordinate(6), topY);
+            dc.drawLine(leftX, topY + graphHeight, leftX + recalculateCoordinate(6), topY + graphHeight);
+            dc.drawLine(maxX + recalculateCoordinate(5), topY, screenWidth - leftX, topY);
+            dc.drawLine(minX + recalculateCoordinate(5), topY + graphHeight, screenWidth - leftX, topY + graphHeight);
 
             var x;
             for (var i = 0; i <= 6; i++) {
-                x = 240 - leftX - (i * 27.5);
-                dc.drawLine(scale(x), scale(topY), scale(x), scale(topY + 5 + 1));
-                dc.drawLine(scale(x), scale(topY + 30), scale(x), scale(topY + 35));
+                x = leftX + (i * ((screenWidth - (2 * leftX)) / 6 ));
+                dc.drawLine(x, topY, x, topY + recalculateCoordinate(5 + 1));
+                dc.drawLine(x, topY + graphHeight - recalculateCoordinate(5), x, topY + graphHeight + 1);
             }
         }
 
@@ -859,30 +842,31 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         var counter = 1; //used only for 180 samples history
         var value = null;
         var valueStr = "";
-        var x1 = (screenWidth - scale(leftX)).toNumber();
-        var y1, x2, y2;
+        var x1 = (screenWidth - leftX).toNumber();
+        var y1 = null;
+        var x2, y2;
         dc.setColor(graphLineColor, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(graphLineWidth);
         if (item != null) {
             value = item.data;            
             if (value != null) {
                 valueStr = value;
-                if (graphType == 1 && deviceSettings.elevationUnits == System.UNIT_STATUTE) {
+                if (graphType == SG_ELEVATION && deviceSettings.elevationUnits == System.UNIT_STATUTE) {
                     valueStr = convertM_Ft(value);
-                } else if (graphType == 4 && deviceSettings.temperatureUnits == System.UNIT_STATUTE) {
+                } else if (graphType == SG_PRESSURE && deviceSettings.temperatureUnits == System.UNIT_STATUTE) {
                     valueStr = convertC_F(value);
                 }
-                y1 = (topY + 35 + 1) - ((value / divider) - minVal) / range * 35;
-                dc.drawPoint(x1, scale(y1));
+                y1 = (topY + graphHeight + 1) - ((recalculateCoordinate(value) / divider) - recalculateCoordinate(minVal)) / recalculateCoordinate(range) * graphHeight;
+                dc.drawPoint(x1, y1);
             }
         } else {
             //no samples
             return;
         }
 
-        var times = 0; //how many times is number of samples bigger than 165
+        var times = 0; //how many times is number of samples bigger than graph width in pixels
         var rest = numberOfSamples;
-        var smp = (screenWidth - scale(2 * leftX)).toNumber();
+        var smp = (screenWidth - (2 * leftX)).toNumber();
         while (rest > smp) {
             times++;
             rest -= smp;
@@ -891,21 +875,23 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
         item = iterator.next();
         counter++;
-        var timestamp = Toybox.Time.Gregorian.info(item.when, Time.FORMAT_SHORT);
-        if (times > 1 && timestamp.min % times == 1) {
-            //prevent "jumping" graph (in one minute are shown even samples, in another odd samples and so on)
-            counter--;            
+        if (item != null) {
+            var timestamp = Toybox.Time.Gregorian.info(item.when, Time.FORMAT_SHORT);
+            if (times > 1 && timestamp.min % times == 1) {
+                //prevent "jumping" graph (in one minute are shown even samples, in another odd samples and so on)
+                counter--;            
+            }
         }
         while (item != null) {
             if (times == 1 && counter % skipPossition == 0) {
-                //skip each 'skipPosition' position sample to display only 165 samples because of screen size
+                //skip each 'skipPosition' position sample to display only graph width in pixels samples because of screen size
                 item = iterator.next();
                 counter++;
                 continue;
             }
             if (times > 1) {                
                 if (counter % skipPossition == 1) {
-                    //skip each 'skipPosition' positon sample to display only 165 samples because of screen size
+                    //skip each 'skipPosition' positon sample to display only graph width in pixels samples because of screen size
                     item = iterator.next();
                     counter++;
                     continue;
@@ -921,11 +907,11 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             value = item.data;
             x2 = x1 - 1;
             if (value != null) {
-                y2 = (topY + 35 + 1) - ((value / divider) - minVal) / range * 35;
+                y2 = (topY + graphHeight + 1) - ((recalculateCoordinate(value) / divider) - recalculateCoordinate(minVal)) / recalculateCoordinate(range) * graphHeight;
                 if (y1 != null) {
-                    dc.drawLine(x2, scale(y2), x1, scale(y1));
+                    dc.drawLine(x2, y2, x1, y1);
                 } else {
-                    dc.drawPoint(x2, scale(y2));
+                    dc.drawPoint(x2, y2);
                 }
                 y1 = y2;
             } else {
@@ -940,12 +926,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         //draw latest value on top of graph
         if (showLatestValue) {
             dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(scale(leftX + 8), scale(topY + 6), Graphics.FONT_XTINY, (valueStr / divider).format("%." + decimalCount + "f"), Graphics.TEXT_JUSTIFY_LEFT);
+            dc.drawText(leftX + recalculateCoordinate(8), topY + (graphHeight / 2) - (graphTextHeight / 2), Graphics.FONT_XTINY, (valueStr / divider).format("%." + decimalCount + "f"), Graphics.TEXT_JUSTIFY_LEFT);
         }
-    }
-
-    function scale(x) {
-        return x * screenResolutionRatio;
     }
 
     function countSamples(iterator) {
@@ -992,18 +974,18 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
     function drawPowerSaverIcon(dc) {
         dc.setColor(handsColor, Graphics.COLOR_TRANSPARENT);
-        dc.fillCircle(screenRadius, screenRadius, 45 * powerSaverIconRatio);
+        dc.fillCircle(screenRadius, screenRadius, recalculateCoordinate(45) * powerSaverIconRatio);
         dc.setColor(bgColor, Graphics.COLOR_TRANSPARENT);
-        dc.fillCircle(screenRadius, screenRadius, 40 * powerSaverIconRatio);
+        dc.fillCircle(screenRadius, screenRadius, recalculateCoordinate(40) * powerSaverIconRatio);
         dc.setColor(handsColor, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(screenRadius - (13 * powerSaverIconRatio), screenRadius - (23 * powerSaverIconRatio), 26 * powerSaverIconRatio, 51 * powerSaverIconRatio);
-        dc.fillRectangle(screenRadius - (4 * powerSaverIconRatio), screenRadius - (27 * powerSaverIconRatio), 8 * powerSaverIconRatio, 5 * powerSaverIconRatio);
+        dc.fillRectangle(screenRadius - (recalculateCoordinate(13) * powerSaverIconRatio), screenRadius - (recalculateCoordinate(23) * powerSaverIconRatio), recalculateCoordinate(26) * powerSaverIconRatio, recalculateCoordinate(51) * powerSaverIconRatio);
+        dc.fillRectangle(screenRadius - (recalculateCoordinate(4) * powerSaverIconRatio), screenRadius - (recalculateCoordinate(27) * powerSaverIconRatio), recalculateCoordinate(8) * powerSaverIconRatio, recalculateCoordinate(5) * powerSaverIconRatio);
         if (oneColor == offSettingFlag) {
             dc.setColor(powerSaverIconColor, Graphics.COLOR_TRANSPARENT);
         } else {
             dc.setColor(oneColor, Graphics.COLOR_TRANSPARENT);
         }
-        dc.fillRectangle(screenRadius - (10 * powerSaverIconRatio), screenRadius - (20 * powerSaverIconRatio), 20 * powerSaverIconRatio, 45 * powerSaverIconRatio);
+        dc.fillRectangle(screenRadius - (recalculateCoordinate(10) * powerSaverIconRatio), screenRadius - (recalculateCoordinate(20) * powerSaverIconRatio), recalculateCoordinate(20) * powerSaverIconRatio, recalculateCoordinate(45) * powerSaverIconRatio);
 
         powerSaverDrawn = true;
     }
@@ -1037,9 +1019,9 @@ class SmartArcsTripView extends WatchUi.WatchFace {
                     ((sunriseEndAngle < sunsetStartAngle) && (sunriseEndAngle > sunsetEndAngle)) ||
                     ((sunsetStartAngle < sunriseStartAngle) && (sunsetStartAngle > sunriseEndAngle)) ||
                     ((sunsetEndAngle < sunriseStartAngle) && (sunsetEndAngle > sunriseEndAngle))) {
-                sunArcsOffset = 10;
+                sunArcsOffset = recalculateCoordinate(10);
             } else {
-                sunArcsOffset = 12;
+                sunArcsOffset = recalculateCoordinate(12);
             }
         }
 	}
@@ -1054,9 +1036,9 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 	function drawSun(dc) {
         dc.setPenWidth(1);
 
-        var arcWidth = 9;
-        if (sunArcsOffset == 10) {
-            arcWidth = 7;
+        var arcWidth = recalculateCoordinate(9);
+        if (sunArcsOffset == recalculateCoordinate(10)) {
+            arcWidth = recalculateCoordinate(7);
         }
 
         //draw sunrise
@@ -1065,15 +1047,15 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     	        dc.setColor(sunriseColor, Graphics.COLOR_TRANSPARENT);
                 var step = (sunriseStartAngle - sunriseEndAngle) / arcWidth;
                 for (var i = 0; i < arcWidth; i++) {
-                    if (sunArcsOffset == 10) {
-				        dc.drawArc(screenRadius, screenRadius, screenRadius - 20 + i, Graphics.ARC_CLOCKWISE, sunriseStartAngle - (step * i), sunriseEndAngle);
+                    if (sunArcsOffset == recalculateCoordinate(10)) {
+				        dc.drawArc(screenRadius, screenRadius, screenRadius - recalculateCoordinate(20) + i, Graphics.ARC_CLOCKWISE, sunriseStartAngle - (step * i), sunriseEndAngle);
                     } else {
-				        dc.drawArc(screenRadius, screenRadius, screenRadius - 12 - i, Graphics.ARC_CLOCKWISE, sunriseStartAngle - (step * i), sunriseEndAngle);
+				        dc.drawArc(screenRadius, screenRadius, screenRadius - recalculateCoordinate(12) - i, Graphics.ARC_CLOCKWISE, sunriseStartAngle - (step * i), sunriseEndAngle);
                     }
                 }
 			} else {
 		        dc.setColor(sunriseColor, Graphics.COLOR_TRANSPARENT);
-    			dc.drawArc(screenRadius, screenRadius, screenRadius - 17, Graphics.ARC_COUNTER_CLOCKWISE, sunriseStartAngle, sunriseEndAngle);
+    			dc.drawArc(screenRadius, screenRadius, screenRadius - recalculateCoordinate(17), Graphics.ARC_COUNTER_CLOCKWISE, sunriseStartAngle, sunriseEndAngle);
 			}
 		}
 

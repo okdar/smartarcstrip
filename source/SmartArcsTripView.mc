@@ -166,9 +166,17 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             hasTemperatureHistory = Toybox.SensorHistory has :getTemperatureHistory;
         }
 
+        screenWidth = dc.getWidth();
+        screenRadius = screenWidth / 2;
+        //TINY font for screen resolution 240 and lower, SMALL for higher resolution
+        if (screenRadius <= 120) {
+            font = Graphics.FONT_TINY;
+        } else {
+            font = Graphics.FONT_SMALL;
+        }
+        hrTextDimension = dc.getTextDimensions("888", font); //to compute correct clip boundaries
+
         loadUserSettings();
-        computeConstants(dc);
-		computeSunConstants();
         fullScreenRefresh = true;
     }
 
@@ -458,21 +466,14 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 		locationLongitude = app.getProperty("locationLongitude");
 
         //ensure that screen will be refreshed when settings are changed 
-    	powerSaverDrawn = false;   	
+    	powerSaverDrawn = false;
+        
+        computeConstants();
+		computeSunConstants();
     }
 
     //pre-compute values which don't need to be computed on each update
-    function computeConstants(dc) {
-        screenWidth = dc.getWidth();
-        screenRadius = screenWidth / 2;
-
-        //TINY font for screen resolution 240 and lower, SMALL for higher resolution
-        if (screenRadius <= 120) {
-            font = Graphics.FONT_TINY;
-        } else {
-            font = Graphics.FONT_SMALL;
-        }
-
+    function computeConstants() {
         //computes hand lenght for watches with different screen resolution than 260x260
         screenResolutionRatio = screenRadius / 130.0; //130.0 = half of vivoactive4 resolution; used for coordinates recalculation
         hourHandLength = recalculateCoordinate(60);
@@ -491,7 +492,6 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             computeTicks();
         }
 
-        hrTextDimension = dc.getTextDimensions("888", font); //to compute correct clip boundaries
         halfHRTextWidth = hrTextDimension[0] / 2;
 
         getNumberOfSamples(upperGraph);

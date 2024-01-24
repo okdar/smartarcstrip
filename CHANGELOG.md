@@ -1,3 +1,6 @@
+# 2.0.1 (January 24, 2024)
+* bugfix - loading settings
+
 # 2.0.0 (January 19, 2024)
 * improved screen resolution scaling
 * new watch models supported - Approach® S70, D2™ Mach 1, Descent™ MK3, epix™, epix™ Pro, fēnix® 7, fēnix® 7 Pro, fēnix® 7S, fēnix® 7S Pro, fēnix® 7X, fēnix® 7X Pro, Forerunner® 255, Forerunner® 255S, Forerunner® 265, Forerunner® 265S, Forerunner® 55, Forerunner® 955, Forerunner® 965, MARQ® (Gen 2), MARQ™ Aviator (Gen 2), Venu® Sq. Music Edition, quatix® 6, quatix® 6X, tactix® 7

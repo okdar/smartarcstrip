@@ -1,3 +1,7 @@
+# 3.0.0 (April 26, 2025)
+* implemented Lost and Found feature
+* power saver fix
+
 # 2.0.1 (January 24, 2024)
 * bugfix - loading settings
 

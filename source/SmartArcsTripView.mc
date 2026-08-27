@@ -39,10 +39,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var hasPressureHistory = false;
     var hasHeartRateHistory = false;
     var hasTemperatureHistory = false;
-    var elevationNumberOfSamples = 0;
-    var pressureNumberOfSamples = 0;
-    var heartRateNumberOfSamples = 0;
-    var temperatureNumberOfSamples = 0;
+    var upperGraphCache;
+    var bottomGraphCache;
+    var graphColumns;
+    var graphCacheUpdatedMin;
     var fullScreenRefresh;
     var offscreenBuffer;
     var offSettingFlag = -999;
@@ -336,43 +336,26 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             drawHands(targetDc, clockTime);
         }
 
+        //refresh graph caches - reads only the newest sample, at most once per minute
+        updateGraphCaches(clockTime);
+
+        //sensor field texts read only the newest sample - cheap
         if (hasElevationHistory) {
             drawSensorValueText(targetDc, SensorHistory.getElevationHistory({}), SF_ELEVATION, 1.0, "%.0f");
-            if (upperGraph == SG_ELEVATION) {
-                drawGraph(targetDc, SensorHistory.getElevationHistory({}), UPPER_GRAPH, 0, 1.0, 5, true, SG_ELEVATION, elevationNumberOfSamples);
-            }
-            if (bottomGraph == SG_ELEVATION) {
-                drawGraph(targetDc, SensorHistory.getElevationHistory({}), BOTTOM_GRAPH, 0, 1.0, 5, true, SG_ELEVATION, elevationNumberOfSamples);
-            }
         }
-
         if (hasPressureHistory) {
             drawSensorValueText(targetDc, SensorHistory.getPressureHistory({}), SF_PRESSURE, 100.0, "%.1f");
-            if (upperGraph == SG_PRESSURE) {
-                drawGraph(targetDc, SensorHistory.getPressureHistory({}), UPPER_GRAPH, 1, 100.0, 2, true, SG_PRESSURE, pressureNumberOfSamples);
-            }
-            if (bottomGraph == SG_PRESSURE) {
-                drawGraph(targetDc, SensorHistory.getPressureHistory({}), BOTTOM_GRAPH, 1, 100.0, 2, true, SG_PRESSURE, pressureNumberOfSamples);
-            }
         }
-
-        if (hasHeartRateHistory) {
-            if (upperGraph == SG_HR) {
-                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), UPPER_GRAPH, 0, 1.0, 5, false, SG_HR, heartRateNumberOfSamples);
-            }
-            if (bottomGraph == SG_HR) {
-                drawGraph(targetDc, SensorHistory.getHeartRateHistory({}), BOTTOM_GRAPH, 0, 1.0, 5, false, SG_HR, heartRateNumberOfSamples);
-            }
-        }
-
         if (hasTemperatureHistory) {
             drawSensorValueText(targetDc, SensorHistory.getTemperatureHistory({}), SF_TEMPERATURE, 1.0, "%.1f");
-            if (upperGraph == SG_TEMPERATURE) {
-                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), UPPER_GRAPH, 1, 1.0, 5, true, SG_TEMPERATURE, temperatureNumberOfSamples);
-            }
-            if (bottomGraph == SG_TEMPERATURE) {
-                drawGraph(targetDc, SensorHistory.getTemperatureHistory({}), BOTTOM_GRAPH, 1, 1.0, 5, true, SG_TEMPERATURE, temperatureNumberOfSamples);
-            }
+        }
+
+        //graphs are drawn from the cached internal structure, not from the whole iterator
+        if (upperGraph != SG_NO_GRAPH) {
+            drawGraph(targetDc, upperGraphCache, UPPER_GRAPH);
+        }
+        if (bottomGraph != SG_NO_GRAPH) {
+            drawGraph(targetDc, bottomGraphCache, BOTTOM_GRAPH);
         }
 
         targetDc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
@@ -543,17 +526,163 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
         halfHRTextWidth = hrTextDimension[0] / 2;
 
-        getNumberOfSamples(upperGraph);
-        getNumberOfSamples(bottomGraph);
+        buildGraphCaches();
     }
 
-    function getNumberOfSamples(graphType) {
-        switch (graphType) {
-            case SG_ELEVATION: elevationNumberOfSamples = hasElevationHistory ? countSamples(SensorHistory.getElevationHistory({})) : 0;
-            case SG_PRESSURE:  pressureNumberOfSamples = hasPressureHistory ? countSamples(SensorHistory.getPressureHistory({})) : 0;
-            case SG_HR:  heartRateNumberOfSamples = hasHeartRateHistory ? countSamples(SensorHistory.getHeartRateHistory({})) : 0;
-            case SG_TEMPERATURE:  temperatureNumberOfSamples = hasTemperatureHistory ? countSamples(SensorHistory.getTemperatureHistory({})) : 0;
+    //(re)build both graph caches by reading each history once and downsampling it
+    function buildGraphCaches() {
+        graphColumns = screenWidth - (2 * recalculateCoordinate(40));
+        if (upperGraphCache == null) {
+            upperGraphCache = new GraphCache(graphColumns);
         }
+        if (bottomGraphCache == null) {
+            bottomGraphCache = new GraphCache(graphColumns);
+        }
+        graphCacheUpdatedMin = null;
+        buildGraphCache(upperGraphCache, upperGraph);
+        buildGraphCache(bottomGraphCache, bottomGraph);
+    }
+
+    //read the whole history once and store downsampled values (newest first) in the cache
+    function buildGraphCache(cache, graphType) {
+        cache.reset();
+        cache.graphType = graphType;
+        if (graphType == SG_NO_GRAPH) {
+            return;
+        }
+
+        var numberOfSamples = countHistorySamples(graphType);
+        if (numberOfSamples == 0) {
+            return;
+        }
+
+        //remember the timestamp of the newest sample to detect new data later
+        var newestIterator = getHistoryIterator(graphType);
+        var newestItem = (newestIterator != null) ? newestIterator.next() : null;
+        cache.lastWhen = (newestItem != null && newestItem.when != null) ? newestItem.when.value() : null;
+
+        var iterator = getHistoryIterator(graphType);
+        if (iterator == null) {
+            return;
+        }
+        var processed = processGraphIterator(iterator, numberOfSamples, cache.size);
+        var count = processed.size();
+        if (count > cache.size) {
+            count = cache.size;
+        }
+        for (var i = 0; i < count; i++) {
+            cache.values[i] = processed[i];
+        }
+        cache.recomputeMinMax();
+    }
+
+    //refresh both caches at most once per minute, adding only the newest sample
+    function updateGraphCaches(clockTime) {
+        if (graphCacheUpdatedMin == clockTime.min) {
+            return;
+        }
+        graphCacheUpdatedMin = clockTime.min;
+        updateGraphCache(upperGraphCache);
+        updateGraphCache(bottomGraphCache);
+    }
+
+    function updateGraphCache(cache) {
+        if (cache == null || cache.graphType == SG_NO_GRAPH) {
+            return;
+        }
+
+        var iterator = getHistoryIterator(cache.graphType);
+        if (iterator == null) {
+            return;
+        }
+        var item = iterator.next();
+        if (item == null || item.when == null) {
+            return;
+        }
+
+        var whenVal = item.when.value();
+        if (cache.lastWhen != null && whenVal == cache.lastWhen) {
+            //no new sample since the last refresh
+            return;
+        }
+        cache.lastWhen = whenVal;
+
+        var evicted = cache.push(item.data);
+
+        //keep min/max up to date incrementally, rescanning only when an extreme drops out
+        if (evicted != null && (evicted == cache.minVal || evicted == cache.maxVal)) {
+            cache.recomputeMinMax();
+        } else if (item.data != null) {
+            if (cache.minVal == null || item.data < cache.minVal) {
+                cache.minVal = item.data;
+            }
+            if (cache.maxVal == null || item.data > cache.maxVal) {
+                cache.maxVal = item.data;
+            }
+        }
+    }
+
+    function getHistoryIterator(graphType) {
+        switch (graphType) {
+            case SG_ELEVATION:
+                return hasElevationHistory ? SensorHistory.getElevationHistory({}) : null;
+            case SG_PRESSURE:
+                return hasPressureHistory ? SensorHistory.getPressureHistory({}) : null;
+            case SG_HR:
+                return hasHeartRateHistory ? SensorHistory.getHeartRateHistory({}) : null;
+            case SG_TEMPERATURE:
+                return hasTemperatureHistory ? SensorHistory.getTemperatureHistory({}) : null;
+        }
+        return null;
+    }
+
+    function countHistorySamples(graphType) {
+        var iterator = getHistoryIterator(graphType);
+        if (iterator == null) {
+            return 0;
+        }
+        return countSamples(iterator);
+    }
+
+    //average the history down to at most targetColumns values (newest first)
+    function processGraphIterator(iterator, numberOfSamples, targetColumns) {
+        var batchSize = (numberOfSamples > targetColumns) ? Math.ceil(numberOfSamples.toFloat() / targetColumns).toNumber() : 1;
+
+        var processedValues = [];
+        var currentSum = 0;
+        var count = 0;
+        var countNull = 0;
+
+        var item = iterator.next();
+        while (item != null) {
+            if (item.data != null) {
+                currentSum += item.data;
+                count++;
+            } else {
+                countNull++;
+            }
+
+            //once a batch is complete, store its average (or null if the batch had no data)
+            if ((count + countNull) == batchSize) {
+                if (countNull == batchSize) {
+                    processedValues.add(null);
+                } else {
+                    processedValues.add(currentSum / count);
+                }
+                currentSum = 0;
+                count = 0;
+                countNull = 0;
+            }
+
+            item = iterator.next();
+        }
+
+        //handle any remaining values that didn't form a complete batch
+        if (count > 0) {
+            processedValues.add(currentSum / count);
+        }
+
+        return processedValues;
     }
 
     function parsePowerSaverTime(time) {
@@ -828,11 +957,30 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         dc.drawText(screenWidth - recalculateCoordinate(30), screenRadius, font, hrText, Graphics.TEXT_JUSTIFY_RIGHT|Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    function drawGraph(dc, iterator, graphPosition, decimalCount, divider, minimalRange, showLatestValue, graphType, numberOfSamples) {
-        var minVal = iterator.getMin();
-        var maxVal = iterator.getMax();
-        if (minVal == null || maxVal == null || numberOfSamples == 0) {
+    function drawGraph(dc, cache, graphPosition) {
+        if (cache == null) {
             return;
+        }
+        var minValRaw = cache.minVal;
+        var maxValRaw = cache.maxVal;
+        if (minValRaw == null || maxValRaw == null) {
+            return;
+        }
+
+        //per-sensor formatting (previously passed as arguments per sensor type)
+        var graphType = cache.graphType;
+        var decimalCount = 0;
+        var divider = 1.0;
+        var minimalRange = 5;
+        var showLatestValue = true;
+        if (graphType == SG_PRESSURE) {
+            decimalCount = 1;
+            divider = 100.0;
+            minimalRange = 2;
+        } else if (graphType == SG_HR) {
+            showLatestValue = false;
+        } else if (graphType == SG_TEMPERATURE) {
+            decimalCount = 1;
         }
 
         var graphTextHeight = dc.getTextDimensions("8", Graphics.FONT_XTINY)[1]; //font height
@@ -844,8 +992,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             topY = screenRadius + graphTextHeight;
         }
 
-        minVal = Math.floor(minVal / divider);
-        maxVal = Math.ceil(maxVal / divider);
+        var minVal = Math.floor(minValRaw / divider);
+        var maxVal = Math.ceil(maxValRaw / divider);
         var range = maxVal - minVal;
         if (range < minimalRange) {
             var avg = (minVal + maxVal) / 2.0;
@@ -887,94 +1035,47 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             }
         }
 
-        //get latest sample
-        var item = iterator.next();
-        var counter = 1; //used only for 180 samples history
-        var value = null;
-        var valueStr = "";
+        //draw the graph line from the cached values (newest on the right, one sample per pixel)
+        var baseY = topY + graphHeight + 1;
+        var minScaled = recalculateCoordinate(minVal);
+        var rangeScaled = recalculateCoordinate(range);
         var x1 = (screenWidth - leftX).toNumber();
-        var y1 = null;
-        var x2, y2;
+        var prevY = null;
+        var latestValue = null;
+        var value;
+        var y;
         dc.setColor(graphLineColor, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(graphLineWidth);
-        if (item != null) {
-            value = item.data;            
+        for (var i = 0; i < cache.size; i++) {
+            if (x1 < leftX) {
+                break;
+            }
+            value = cache.valueAt(i);
             if (value != null) {
-                valueStr = value;
-                if (graphType == SG_ELEVATION && deviceSettings.elevationUnits == System.UNIT_STATUTE) {
-                    valueStr = convertM_Ft(value);
-                } else if (graphType == SG_PRESSURE && deviceSettings.temperatureUnits == System.UNIT_STATUTE) {
-                    valueStr = convertC_F(value);
+                if (latestValue == null) {
+                    latestValue = value;
                 }
-                y1 = (topY + graphHeight + 1) - ((recalculateCoordinate(value) / divider) - recalculateCoordinate(minVal)) / recalculateCoordinate(range) * graphHeight;
-                dc.drawPoint(x1, y1);
-            }
-        } else {
-            //no samples
-            return;
-        }
-
-        var times = 0; //how many times is number of samples bigger than graph width in pixels
-        var rest = numberOfSamples;
-        var smp = (screenWidth - (2 * leftX)).toNumber();
-        while (rest > smp) {
-            times++;
-            rest -= smp;
-        }
-        var skipPossition = (numberOfSamples / rest) * times;
-
-        item = iterator.next();
-        counter++;
-        if (item != null) {
-            var timestamp = Toybox.Time.Gregorian.info(item.when, Time.FORMAT_SHORT);
-            if (times > 1 && timestamp.min % times == 1) {
-                //prevent "jumping" graph (in one minute are shown even samples, in another odd samples and so on)
-                counter--;            
-            }
-        }
-        while (item != null) {
-            if (times == 1 && counter % skipPossition == 0) {
-                //skip each 'skipPosition' position sample to display only graph width in pixels samples because of screen size
-                item = iterator.next();
-                counter++;
-                continue;
-            }
-            if (times > 1) {                
-                if (counter % skipPossition == 1) {
-                    //skip each 'skipPosition' positon sample to display only graph width in pixels samples because of screen size
-                    item = iterator.next();
-                    counter++;
-                    continue;
-                }
-                if (counter % times == 0) {
-                    //many samples, skip every 'times' position sample
-                    item = iterator.next();
-                    counter++;
-                    continue;
-                }
-            }
-
-            value = item.data;
-            x2 = x1 - 1;
-            if (value != null) {
-                y2 = (topY + graphHeight + 1) - ((recalculateCoordinate(value) / divider) - recalculateCoordinate(minVal)) / recalculateCoordinate(range) * graphHeight;
-                if (y1 != null) {
-                    dc.drawLine(x2, y2, x1, y1);
+                y = baseY - ((recalculateCoordinate(value) / divider) - minScaled) / rangeScaled * graphHeight;
+                if (prevY != null) {
+                    dc.drawLine(x1 + 1, prevY, x1, y);
                 } else {
-                    dc.drawPoint(x2, y2);
+                    dc.drawPoint(x1, y);
                 }
-                y1 = y2;
+                prevY = y;
             } else {
-                y1 = null;
+                prevY = null;
             }
-            x1 = x2;
-
-            item = iterator.next();
-            counter++;
+            x1--;
         }
 
         //draw latest value on top of graph
-        if (showLatestValue) {
+        if (showLatestValue && latestValue != null) {
+            var valueStr = latestValue;
+            if (graphType == SG_ELEVATION && deviceSettings.elevationUnits == System.UNIT_STATUTE) {
+                valueStr = convertM_Ft(latestValue);
+            } else if (graphType == SG_PRESSURE && deviceSettings.temperatureUnits == System.UNIT_STATUTE) {
+                valueStr = convertC_F(latestValue);
+            }
             dc.setColor(graphCurrentValueColor, Graphics.COLOR_TRANSPARENT);
             dc.drawText(leftX + recalculateCoordinate(8), topY + (graphHeight / 2) - (graphTextHeight / 2), Graphics.FONT_XTINY, (valueStr / divider).format("%." + decimalCount + "f"), Graphics.TEXT_JUSTIFY_LEFT);
         }

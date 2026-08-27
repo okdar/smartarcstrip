@@ -61,6 +61,12 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var hourHandLength;
     var minuteHandLength;
     var handsTailLength;
+    var bulletRadius;
+    var rc2;
+    var rc4;
+    var rc5;
+    var rc10;
+    var rc30;
     var hrTextDimension;
     var startPowerSaverMin;
     var endPowerSaverMin;
@@ -500,9 +506,15 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     function computeConstants() {
         //computes hand lenght for watches with different screen resolution than 260x260
         screenResolutionRatio = screenRadius / 130.0; //130.0 = half of vivoactive4 resolution; used for coordinates recalculation
+        rc2 = recalculateCoordinate(2);
+        rc4 = recalculateCoordinate(4);
+        rc5 = recalculateCoordinate(5);
+        rc10 = recalculateCoordinate(10);
+        rc30 = recalculateCoordinate(30);
         hourHandLength = recalculateCoordinate(60);
         minuteHandLength = recalculateCoordinate(90);
         handsTailLength = recalculateCoordinate(15);
+        bulletRadius = (hourHandWidth > minuteHandWidth ? hourHandWidth : minuteHandWidth) / 2;
         
         if (!((ticksColor == offSettingFlag) ||
             (ticksColor != offSettingFlag && ticks1MinWidth == 0 && ticks5MinWidth == 0 && ticks15MinWidth == 0))) {
@@ -729,9 +741,9 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     }
 
     function drawSmartArc(dc, color, arcDirection, startAngle, endAngle) {
-        dc.setPenWidth(recalculateCoordinate(10));
+        dc.setPenWidth(rc10);
         dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-        dc.drawArc(screenRadius, screenRadius, screenRadius - recalculateCoordinate(5), arcDirection, startAngle, endAngle);
+        dc.drawArc(screenRadius, screenRadius, screenRadius - rc5, arcDirection, startAngle, endAngle);
     }
 
     function drawTicks(dc) {
@@ -773,24 +785,23 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         hourAngle = ((clockTime.hour % 12) * 60.0) + clockTime.min;
         hourAngle = hourAngle / (12 * 60.0) * Math.PI * 2;
         if (handsOutlineColor != offSettingFlag) {
-            drawHand(dc, handsOutlineColor, computeHandRectangle(hourAngle, hourHandLength + recalculateCoordinate(2), handsTailLength + recalculateCoordinate(2), hourHandWidth + recalculateCoordinate(4)));
+            drawHand(dc, handsOutlineColor, computeHandRectangle(hourAngle, hourHandLength + rc2, handsTailLength + rc2, hourHandWidth + rc4));
         }
         drawHand(dc, handsColor, computeHandRectangle(hourAngle, hourHandLength, handsTailLength, hourHandWidth));
 
         //draw minute hand
         minAngle = (clockTime.min / 60.0) * Math.PI * 2;
         if (handsOutlineColor != offSettingFlag) {
-            drawHand(dc, handsOutlineColor, computeHandRectangle(minAngle, minuteHandLength + recalculateCoordinate(2), handsTailLength + recalculateCoordinate(2), minuteHandWidth + recalculateCoordinate(4)));
+            drawHand(dc, handsOutlineColor, computeHandRectangle(minAngle, minuteHandLength + rc2, handsTailLength + rc2, minuteHandWidth + rc4));
         }
         drawHand(dc, handsColor, computeHandRectangle(minAngle, minuteHandLength, handsTailLength, minuteHandWidth));
 
         //draw bullet
-        var bulletRadius = hourHandWidth > minuteHandWidth ? hourHandWidth / 2 : minuteHandWidth / 2;
         dc.setColor(bgColor, Graphics.COLOR_TRANSPARENT);
         dc.fillCircle(screenRadius, screenRadius, bulletRadius + 1);
         dc.setPenWidth(bulletRadius);
         dc.setColor(handsColor,Graphics.COLOR_TRANSPARENT);
-        dc.drawCircle(screenRadius, screenRadius, bulletRadius + recalculateCoordinate(2));
+        dc.drawCircle(screenRadius, screenRadius, bulletRadius + rc2);
     }
 
     function drawHand(dc, color, coords) {
@@ -814,30 +825,22 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
         powerSaverDrawn = false;
 
-        var refreshHR = false;
-        var clockSeconds = System.getClockTime().sec;
-
-        //should be HR refreshed?
+        //only the HR text needs refreshing each second, so restrict all drawing to its region
         if (hrColor != offSettingFlag) {
-            if (hrRefreshInterval == 1) {
-                refreshHR = true;
-            } else if (clockSeconds % hrRefreshInterval == 0) {
+            var refreshHR = false;
+            var clockSeconds = System.getClockTime().sec;
+            if (hrRefreshInterval == 1 || clockSeconds % hrRefreshInterval == 0) {
                 refreshHR = true;
             }
-        }
 
-        //if we're not doing a full screen refresh we need to re-draw the background
-        //before drawing the updated second hand position. Note this will only re-draw
-        //the background in the area specified by the previously computed clipping region.
-        if(!fullScreenRefresh) {
-            drawBackground(dc);
-        }
-
-        //draw HR
-        if (hrColor != offSettingFlag) {
+            //clip the background blit to the HR region instead of redrawing the whole screen every second
+            dc.setClip(screenWidth - hrTextDimension[0] - rc30, screenRadius - (hrTextDimension[1] / 2), hrTextDimension[0], hrTextDimension[1]);
+            if (!fullScreenRefresh) {
+                drawBackground(dc);
+            }
             drawHR(dc, refreshHR);
         }
-        
+
         if (shouldPowerSave()) {
             requestUpdate();
         }
@@ -933,12 +936,12 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             hrText = hr.format("%i");
         }
 
-        dc.setClip(screenWidth - hrTextDimension[0] - recalculateCoordinate(30), screenRadius - (hrTextDimension[1] / 2), hrTextDimension[0], hrTextDimension[1]);
+        dc.setClip(screenWidth - hrTextDimension[0] - rc30, screenRadius - (hrTextDimension[1] / 2), hrTextDimension[0], hrTextDimension[1]);
 
         dc.setColor(hrColor, Graphics.COLOR_TRANSPARENT);
         //debug rectangle
-//        dc.drawRectangle(screenWidth - hrTextDimension[0] - recalculateCoordinate(30), screenRadius - (hrTextDimension[1] / 2), hrTextDimension[0], hrTextDimension[1]);
-        dc.drawText(screenWidth - recalculateCoordinate(30), screenRadius, font, hrText, Graphics.TEXT_JUSTIFY_RIGHT|Graphics.TEXT_JUSTIFY_VCENTER);
+//        dc.drawRectangle(screenWidth - hrTextDimension[0] - rc30, screenRadius - (hrTextDimension[1] / 2), hrTextDimension[0], hrTextDimension[1]);
+        dc.drawText(screenWidth - rc30, screenRadius, font, hrText, Graphics.TEXT_JUSTIFY_RIGHT|Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
     function drawGraph(dc, cache, graphPosition) {

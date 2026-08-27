@@ -89,7 +89,6 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var ticks5MinWidth;
     var ticks15MinWidth;
     var oneColor;
-    var handsOnTop;
     var showBatteryIndicator;
     var hrColor;
     var hrRefreshInterval;
@@ -98,6 +97,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var bottomGraph;
     var bottomField;
     var graphBordersColor;
+    var graphBackgroundColor;
     var graphLegendColor;
     var graphLineColor;
     var graphLineWidth;
@@ -329,10 +329,6 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             drawTicks(targetDc);
         }
 
-        if (!handsOnTop) {
-            drawHands(targetDc, clockTime);
-        }
-
         //refresh graph caches - reads only the newest sample, at most once per minute
         updateGraphCaches(clockTime);
 
@@ -371,9 +367,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             targetDc.drawText(screenRadius, screenWidth - Graphics.getFontHeight(font) - recalculateCoordinate(30), font, (distance/100000.0).format("%.2f"), Graphics.TEXT_JUSTIFY_CENTER);
         }
 
-        if (handsOnTop) {
-            drawHands(targetDc, clockTime);
-        }
+        //draw hands on top so they aren't hidden by the graphs
+        drawHands(targetDc, clockTime);
 
         //output the offscreen buffers to the main display if required.
         drawBackground(dc);
@@ -439,8 +434,6 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             hrRefreshInterval = Application.Properties.getValue("hrRefreshInterval");
         }
 
-        handsOnTop = Application.Properties.getValue("handsOnTop");
-
         showBatteryIndicator = Application.Properties.getValue("showBatteryIndicator");
 
         upperField = Application.Properties.getValue("upperField");
@@ -450,6 +443,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         graphCurrentValueColor = Application.Properties.getValue("graphCurrentValueColor");
         if (upperGraph > SG_NO_GRAPH || bottomGraph > SG_NO_GRAPH) {
             graphBordersColor = Application.Properties.getValue("graphBordersColor");
+            graphBackgroundColor = Application.Properties.getValue("graphBackgroundColor");
             graphLegendColor = Application.Properties.getValue("graphLegendColor");
             graphLineWidth = Application.Properties.getValue("graphLineWidth");
             if (oneColor == offSettingFlag) {
@@ -978,6 +972,11 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         var graphHeight = screenRadius - topY - graphTextHeight;
         if (graphPosition != UPPER_GRAPH) {
             topY = screenRadius + graphTextHeight;
+        }
+
+        if (graphBackgroundColor != offSettingFlag) {
+            dc.setColor(graphBackgroundColor, Graphics.COLOR_TRANSPARENT);
+            dc.fillRectangle(leftX, topY, screenWidth - (2 * leftX), graphHeight);
         }
 
         var minVal = Math.floor(minValRaw / divider);

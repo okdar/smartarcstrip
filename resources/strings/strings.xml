@@ -18,4 +18,8 @@
 
 <strings>
     <string id="AppName">SmartArcs Trip</string>
+    <string id="settingsMenuTitle">Settings</string>
+    <string id="showHrMenuTitle">Heart rate</string>
+    <string id="powerSaverMenuTitle">Power saver</string>
+    <string id="showLostAndFoundMenuTitle">Lost and found</string>
 </strings>

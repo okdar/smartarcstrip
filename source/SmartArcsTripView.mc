@@ -175,7 +175,6 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         }
         hrTextDimension = dc.getTextDimensions("888", font); //to compute correct clip boundaries
 
-        loadUserSettings();
         fullScreenRefresh = true;
     }
 
@@ -183,6 +182,9 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     //the state of this View and prepare it to be shown. This includes
     //loading resources into memory.
     function onShow() {
+        isAwake = true;
+        loadUserSettings();
+        requestUpdate();
     }
 
     //update the view

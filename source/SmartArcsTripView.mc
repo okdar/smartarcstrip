@@ -347,14 +347,15 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         //refresh graph caches - reads only the newest sample, at most once per minute
         updateGraphCaches(clockTime);
 
-        //sensor field texts read only the newest sample - cheap
-        if (hasElevationHistory) {
+        //sensor field texts read only the newest sample - cheap; skip creating the
+        //history iterator unless the sensor is actually shown as a field
+        if (hasElevationHistory && (upperField == SF_ELEVATION || bottomField == SF_ELEVATION)) {
             drawSensorValueText(targetDc, SensorHistory.getElevationHistory({}), SF_ELEVATION, 1.0, "%.0f");
         }
-        if (hasPressureHistory) {
+        if (hasPressureHistory && (upperField == SF_PRESSURE || bottomField == SF_PRESSURE)) {
             drawSensorValueText(targetDc, SensorHistory.getPressureHistory({}), SF_PRESSURE, 100.0, "%.1f");
         }
-        if (hasTemperatureHistory) {
+        if (hasTemperatureHistory && (upperField == SF_TEMPERATURE || bottomField == SF_TEMPERATURE)) {
             drawSensorValueText(targetDc, SensorHistory.getTemperatureHistory({}), SF_TEMPERATURE, 1.0, "%.1f");
         }
 
@@ -841,18 +842,18 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
         //only the HR text needs refreshing each second, so restrict all drawing to its region
         if (hrColor != offSettingFlag) {
-            var refreshHR = false;
             var clockSeconds = System.getClockTime().sec;
-            if (hrRefreshInterval == 1 || clockSeconds % hrRefreshInterval == 0) {
-                refreshHR = true;
-            }
+            var refreshHR = (hrRefreshInterval == 1 || clockSeconds % hrRefreshInterval == 0);
 
-            //clip the background blit to the HR region instead of redrawing the whole screen every second
-            dc.setClip(screenWidth - hrTextDimension[0] - rc30, screenRadius - (hrTextDimension[1] / 2), hrTextDimension[0], hrTextDimension[1]);
-            if (!fullScreenRefresh) {
-                drawBackground(dc);
+            //skip the per-second blit+redraw on seconds where the HR value can't have changed
+            if (refreshHR || fullScreenRefresh) {
+                //clip the background blit to the HR region instead of redrawing the whole screen every second
+                dc.setClip(screenWidth - hrTextDimension[0] - rc30, screenRadius - (hrTextDimension[1] / 2), hrTextDimension[0], hrTextDimension[1]);
+                if (!fullScreenRefresh) {
+                    drawBackground(dc);
+                }
+                drawHR(dc, refreshHR);
             }
-            drawHR(dc, refreshHR);
         }
 
         if (powerSave) {

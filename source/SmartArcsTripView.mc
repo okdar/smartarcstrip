@@ -68,6 +68,11 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     var rc10;
     var rc30;
     var hrTextDimension;
+    var graphTextHeight;
+    var graphLeftX;
+    var graphUpperTopY;
+    var graphBottomTopY;
+    var graphHeight;
     var startPowerSaverMin;
     var endPowerSaverMin;
     var sunriseStartAngle = 0;
@@ -180,6 +185,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             font = Graphics.FONT_SMALL;
         }
         hrTextDimension = dc.getTextDimensions("888", font); //to compute correct clip boundaries
+        graphTextHeight = dc.getTextDimensions("8", Graphics.FONT_XTINY)[1]; //font height, constant per device
 
         fullScreenRefresh = true;
     }
@@ -522,6 +528,12 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             computeTicks();
         }
 
+        //graph layout is config-constant; precompute so drawGraph avoids getTextDimensions each update
+        graphLeftX = recalculateCoordinate(40);
+        graphUpperTopY = recalculateCoordinate(30) + hrTextDimension[1] + graphTextHeight / 2;
+        graphHeight = screenRadius - graphUpperTopY - graphTextHeight;
+        graphBottomTopY = screenRadius + graphTextHeight;
+
         buildGraphCaches();
     }
 
@@ -817,9 +829,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 
     //Handle the partial update event
     function onPartialUpdate(dc) {
+        var powerSave = shouldPowerSave();
         if ((showLostAndFound != offSettingFlag && 
                 (lastPhoneConnectedTime == null || Time.now().subtract(lastPhoneConnectedTime).value() > showLostAndFound)) ||
-                (powerSaverDrawn && shouldPowerSave())) {
+                (powerSaverDrawn && powerSave)) {
             return;
         }
 
@@ -841,7 +854,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             drawHR(dc, refreshHR);
         }
 
-        if (shouldPowerSave()) {
+        if (powerSave) {
             requestUpdate();
         }
     }
@@ -936,8 +949,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             hrText = hr.format("%i");
         }
 
-        dc.setClip(screenWidth - hrTextDimension[0] - rc30, screenRadius - (hrTextDimension[1] / 2), hrTextDimension[0], hrTextDimension[1]);
-
+        //clip is already set by the caller (onPartialUpdate) to the same HR region
         dc.setColor(hrColor, Graphics.COLOR_TRANSPARENT);
         //debug rectangle
 //        dc.drawRectangle(screenWidth - hrTextDimension[0] - rc30, screenRadius - (hrTextDimension[1] / 2), hrTextDimension[0], hrTextDimension[1]);
@@ -970,14 +982,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             decimalCount = 1;
         }
 
-        var graphTextHeight = dc.getTextDimensions("8", Graphics.FONT_XTINY)[1]; //font height
-
-        var leftX = recalculateCoordinate(40); //40 pixels from screen border
-        var topY = recalculateCoordinate(30) + hrTextDimension[1] + graphTextHeight / 2;
-        var graphHeight = screenRadius - topY - graphTextHeight;
-        if (graphPosition != UPPER_GRAPH) {
-            topY = screenRadius + graphTextHeight;
-        }
+        var leftX = graphLeftX; //40 pixels from screen border
+        var topY = (graphPosition == UPPER_GRAPH) ? graphUpperTopY : graphBottomTopY;
 
         if (graphBackgroundColor != offSettingFlag) {
             dc.setColor(graphBackgroundColor, Graphics.COLOR_TRANSPARENT);
@@ -1184,10 +1190,11 @@ class SmartArcsTripView extends WatchUi.WatchFace {
 	function drawSun(dc) {
         dc.setPenWidth(1);
 
-        var arcWidth = recalculateCoordinate(9);
-        if (sunArcsOffset == recalculateCoordinate(10)) {
-            arcWidth = recalculateCoordinate(7);
-        }
+        //loop-invariant layout hoisted out of the per-pixel arc loops below
+        var tightLayout = (sunArcsOffset == rc10);
+        var arcWidth = tightLayout ? recalculateCoordinate(7) : recalculateCoordinate(9);
+        var sunriseBaseRadius = screenRadius - (tightLayout ? recalculateCoordinate(20) : recalculateCoordinate(12));
+        var sunriseRadiusStep = tightLayout ? 1 : -1;
 
         //draw sunrise
         if (sunriseColor != offSettingFlag) {
@@ -1195,11 +1202,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
     	        dc.setColor(sunriseColor, Graphics.COLOR_TRANSPARENT);
                 var step = (sunriseStartAngle - sunriseEndAngle) / arcWidth;
                 for (var i = 0; i < arcWidth; i++) {
-                    if (sunArcsOffset == recalculateCoordinate(10)) {
-				        dc.drawArc(screenRadius, screenRadius, screenRadius - recalculateCoordinate(20) + i, Graphics.ARC_CLOCKWISE, sunriseStartAngle - (step * i), sunriseEndAngle);
-                    } else {
-				        dc.drawArc(screenRadius, screenRadius, screenRadius - recalculateCoordinate(12) - i, Graphics.ARC_CLOCKWISE, sunriseStartAngle - (step * i), sunriseEndAngle);
-                    }
+				    dc.drawArc(screenRadius, screenRadius, sunriseBaseRadius + (sunriseRadiusStep * i), Graphics.ARC_CLOCKWISE, sunriseStartAngle - (step * i), sunriseEndAngle);
                 }
 			} else {
 		        dc.setColor(sunriseColor, Graphics.COLOR_TRANSPARENT);

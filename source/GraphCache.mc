@@ -31,6 +31,10 @@ class GraphCache {
     var maxVal;      //cached maximum over the buffer
     var lastWhen;    //timestamp (Moment value) of the newest cached sample
     var graphType;   //sensor the buffer currently holds (SmartArcsTripView SG_* enum)
+    var batchSize;   //number of history samples averaged into one column
+    var pendingSum;  //running sum of non-null samples in the column being filled
+    var pendingCount;//non-null samples accumulated into the current column
+    var pendingNull; //null samples accumulated into the current column
 
     function initialize(bufferSize) {
         size = bufferSize;
@@ -40,6 +44,8 @@ class GraphCache {
         maxVal = null;
         lastWhen = null;
         graphType = 0;
+        batchSize = 1;
+        resetPending();
     }
 
     function reset() {
@@ -50,6 +56,14 @@ class GraphCache {
         minVal = null;
         maxVal = null;
         lastWhen = null;
+        resetPending();
+    }
+
+    //discard the partially accumulated column so the next sample starts a fresh one
+    function resetPending() {
+        pendingSum = 0;
+        pendingCount = 0;
+        pendingNull = 0;
     }
 
     //value at position i counting from the newest (0) to the oldest (size - 1)
@@ -63,6 +77,36 @@ class GraphCache {
         var evicted = values[head];
         values[head] = value;
         return evicted;
+    }
+
+    //add one history sample, averaging batchSize consecutive samples into a single
+    //column so incremental updates match the downsampling done in buildGraphCache
+    function addSample(value) {
+        if (value != null) {
+            pendingSum += value;
+            pendingCount++;
+        } else {
+            pendingNull++;
+        }
+
+        var total = pendingCount + pendingNull;
+        var colVal = (pendingCount > 0) ? (pendingSum / pendingCount) : null;
+
+        if (total == 1) {
+            //first sample of a new column: rotate a fresh column in
+            push(colVal);
+        } else {
+            //still filling the newest column: refine its average in place
+            values[head] = colVal;
+        }
+
+        if (total >= batchSize) {
+            //column complete; the next sample starts a new one
+            resetPending();
+        }
+
+        //the newest column changed value, so recompute extremes for correctness
+        recomputeMinMax();
     }
 
     function recomputeMinMax() {

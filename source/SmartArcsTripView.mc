@@ -566,6 +566,10 @@ class SmartArcsTripView extends WatchUi.WatchFace {
             return;
         }
 
+        //each column averages batchSize consecutive samples; remember it so the
+        //incremental updates in updateGraphCache downsample the same way
+        cache.batchSize = (numberOfSamples > cache.size) ? Math.ceil(numberOfSamples.toFloat() / cache.size).toNumber() : 1;
+
         //remember the timestamp of the newest sample to detect new data later
         var newestIterator = getHistoryIterator(graphType);
         var newestItem = (newestIterator != null) ? newestIterator.next() : null;
@@ -575,7 +579,7 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         if (iterator == null) {
             return;
         }
-        var processed = processGraphIterator(iterator, numberOfSamples, cache.size);
+        var processed = processGraphIterator(iterator, cache.batchSize);
         var count = processed.size();
         if (count > cache.size) {
             count = cache.size;
@@ -583,6 +587,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         for (var i = 0; i < count; i++) {
             cache.values[i] = processed[i];
         }
+        //the newest column from the build is complete; start the next one fresh
+        cache.resetPending();
         cache.recomputeMinMax();
     }
 
@@ -617,19 +623,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         }
         cache.lastWhen = whenVal;
 
-        var evicted = cache.push(item.data);
-
-        //keep min/max up to date incrementally, rescanning only when an extreme drops out
-        if (evicted != null && (evicted == cache.minVal || evicted == cache.maxVal)) {
-            cache.recomputeMinMax();
-        } else if (item.data != null) {
-            if (cache.minVal == null || item.data < cache.minVal) {
-                cache.minVal = item.data;
-            }
-            if (cache.maxVal == null || item.data > cache.maxVal) {
-                cache.maxVal = item.data;
-            }
-        }
+        //average batchSize consecutive samples into one column, matching the build
+        cache.addSample(item.data);
     }
 
     function getHistoryIterator(graphType) {
@@ -654,10 +649,8 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         return countSamples(iterator);
     }
 
-    //average the history down to at most targetColumns values (newest first)
-    function processGraphIterator(iterator, numberOfSamples, targetColumns) {
-        var batchSize = (numberOfSamples > targetColumns) ? Math.ceil(numberOfSamples.toFloat() / targetColumns).toNumber() : 1;
-
+    //average the history down using batchSize consecutive samples per column (newest first)
+    function processGraphIterator(iterator, batchSize) {
         var processedValues = [];
         var currentSum = 0;
         var count = 0;

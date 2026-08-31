@@ -1,3 +1,9 @@
+# 4.0.0 (August 31, 2026)
+* reimplemented graphs for better performance (caching)
+* added watch face on-device settings
+* fixed use of deprecated API methods
+* under the hood optimization - reduced CPU utilization and memory allocation
+
 # 3.0.0 (April 26, 2025)
 * implemented Lost and Found feature
 * power saver fix

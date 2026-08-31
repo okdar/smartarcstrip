@@ -205,6 +205,12 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         var clockTime = System.getClockTime();
 
         deviceSettings = System.getDeviceSettings();
+
+        //refresh graph caches - reads only the newest sample, at most once per minute.
+        //done before the power saver / lost and found early returns so the caches keep
+        //accumulating samples while those modes are active and show correct data on exit
+        updateGraphCaches(clockTime);
+
         if (deviceSettings.phoneConnected) {
             lastPhoneConnectedTime = Time.now();
             if (clockTime.min % 10 == 0) {
@@ -343,9 +349,6 @@ class SmartArcsTripView extends WatchUi.WatchFace {
         if (ticks != null) {
             drawTicks(targetDc);
         }
-
-        //refresh graph caches - reads only the newest sample, at most once per minute
-        updateGraphCaches(clockTime);
 
         //sensor field texts read only the newest sample - cheap; skip creating the
         //history iterator unless the sensor is actually shown as a field
